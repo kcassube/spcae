@@ -1,0 +1,12 @@
+{% extends 'emails/base_email.html' %}
+{% block body %}
+<h1>Willkommen, {{ username }}!</h1>
+<p>Für dich wurde soeben ein Zugang zum <strong>Familien Portal</strong> erstellt.</p>
+<p>Deine Zugangsdaten:</p>
+<p>Login: <code>{{ username }}</code></p>
+<p>Initiales Passwort:</p>
+<p class="pw-box">MamaPapa2024!</p>
+<!-- <p class="pw-box">{{ password }}</p> -->
+<!-- <p class="small">Bitte melde dich an und ändere anschließend dein Passwort im Profil-Bereich.</p> -->
+<p><a href="{{ portal_url }}" class="btn">Zum Portal</a></p>
+{% endblock %}

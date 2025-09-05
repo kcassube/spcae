@@ -1,0 +1,8 @@
+{% extends 'emails/base_email.html' %}
+{% block body %}
+<h1>Ereignis gelöscht</h1>
+<p>Hallo {{ username }},</p>
+<p>Das folgende Ereignis wurde entfernt:</p>
+<p><strong>{{ title }}</strong></p>
+<p><a href="{{ portal_url }}" class="btn">Zum Kalender</a></p>
+{% endblock %}

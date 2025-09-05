@@ -1,0 +1,12 @@
+[Unit]
+Description=Family Portal Flask Application
+After=network.target mysql.service
+
+[Service]
+User=www-data
+WorkingDirectory=/www/wwwroot/dchome.app/spcae/family_portal
+Environment="PATH=/www/wwwroot/dchome.app/spcae/family_portal/venv/bin"
+ExecStart=/www/wwwroot/dchome.app/spcae/family_portal/venv/bin/gunicorn -k eventlet -w 1 -b 127.0.0.1:5000 run:app
+
+[Install]
+WantedBy=multi-user.target

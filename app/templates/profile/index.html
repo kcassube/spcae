@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}Profil{% endblock %}
+
+{% block content %}
+    <h1>Profil</h1>
+    <div class="grid cols-2">
+      <div class="card">
+        <h3>Daten</h3>
+        <form method="post">
+          <textarea name="bio" class="input" placeholder="Bio" style="height:120px;">{{ profile.bio or '' }}</textarea>
+          <fieldset style="margin-top:12px;border:1px solid #ddd;padding:10px;border-radius:6px;">
+            <legend style="font-size:13px;font-weight:600;">Benachrichtigungen</legend>
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+              <thead>
+                <tr>
+                  <th style="text-align:left;padding:4px 6px;">Kategorie</th>
+                  <th style="text-align:center;padding:4px 6px;">E-Mail</th>
+                  <th style="text-align:center;padding:4px 6px;">In-App (Socket)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% set rows = [
+                  ('events','Termine & Ereignisse'),
+                  ('chat','Chat'),
+                  ('photos','Fotos'),
+                  ('system','System')
+                ] %}
+                {% for key,label in rows %}
+                <tr style="border-top:1px solid #eee;">
+                  <td style="padding:4px 6px;">{{ label }}</td>
+                  <td style="text-align:center;padding:4px 6px;">
+                    <input type="checkbox" name="pref_email_{{ key }}" {% if ('email',key) in prefs and prefs[('email',key)] %}checked{% endif %}>
+                  </td>
+                  <td style="text-align:center;padding:4px 6px;">
+                    <input type="checkbox" name="pref_socket_{{ key }}" {% if ('socket',key) in prefs and prefs[('socket',key)] %}checked{% endif %}>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+            <div style="font-size:11px;color:#667; margin-top:6px;">Änderungen wirken sich auf künftige Benachrichtigungen aus.</div>
+          </fieldset>
+          <button class="btn" type="submit" style="margin-top:12px;">Speichern</button>
+        </form>
+        <div style="margin-top:18px;padding-top:12px;border-top:1px solid #eee;">
+          <h3 style="margin-top:0;">Web Push</h3>
+          <div id="pushStatus" style="font-size:13px;color:#555;margin-bottom:6px;">Status wird geladen...</div>
+          <button id="btnEnablePush" class="btn" type="button">Aktivieren</button>
+          <button id="btnDisablePush" class="btn" type="button" style="background:#c0392b;display:none;">Deaktivieren</button>
+          <button id="btnTestPush" class="btn" type="button" style="background:#2563eb;margin-left:6px;display:none;">Test</button>
+          <div style="font-size:11px;color:#667;margin-top:6px;line-height:1.4;">Benachrichtigungen auch wenn die Seite geschlossen ist. Browser fragt ggf. nach Berechtigung. Abmeldung löscht das Abo nicht automatisch.</div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Avatar</h3>
+        {% if profile.avatar_filename %}
+          <img src="{{ url_for('profile.avatar_raw', fname=profile.avatar_filename) }}" style="width:120px;height:120px;object-fit:cover;border-radius:60px;" />
+        {% else %}
+          <div style="width:120px;height:120px;border:2px dashed #ccc;border-radius:60px;display:flex;align-items:center;justify-content:center;color:#999;">Kein Avatar</div>
+        {% endif %}
+        <form method="post" action="{{ url_for('profile.avatar') }}" enctype="multipart/form-data" style="margin-top:10px;">
+          <input type="file" name="avatar" required />
+          <button class="btn" type="submit" style="margin-top:6px;">Upload</button>
+        </form>
+      </div>
+    </div>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script>
+(function(){
+  if(!('serviceWorker' in navigator) || !('PushManager' in window)){
+    document.getElementById('pushStatus').textContent='Nicht unterstützt in diesem Browser.';return;
+  }
+  const statusEl = document.getElementById('pushStatus');
+  const btnOn = document.getElementById('btnEnablePush');
+  const btnOff = document.getElementById('btnDisablePush');
+  const btnTest = document.getElementById('btnTestPush');
+  let registration;
+  function b64ToUint8(b64){ const pad='='.repeat((4-b64.length%4)%4); const base=(b64+pad).replace(/-/g,'+').replace(/_/g,'/'); const raw=atob(base); const arr=new Uint8Array(raw.length); for(let i=0;i<raw.length;i++) arr[i]=raw.charCodeAt(i); return arr; }
+  async function currentSub(){ registration = registration || await navigator.serviceWorker.getRegistration(); if(!registration) return null; return await registration.pushManager.getSubscription(); }
+  async function refresh(){ const sub = await currentSub(); if(sub){ statusEl.textContent='Aktiv.'; btnOn.style.display='none'; btnOff.style.display='inline-block'; btnTest.style.display='inline-block'; } else { statusEl.textContent='Inaktiv.'; btnOn.style.display='inline-block'; btnOff.style.display='none'; btnTest.style.display='none'; } }
+  async function enable(){
+    try {
+  // Root Scope Service Worker für konsistenten Push-Status
+  registration = await navigator.serviceWorker.register('/sw.js');
+      let perm = Notification.permission;
+      if(perm==='default') perm = await Notification.requestPermission();
+      if(perm!=='granted'){ statusEl.textContent='Berechtigung verweigert.'; return; }
+      const vapid = await fetch('/push/vapid_public').then(r=>r.json());
+      if(!vapid.publicKey){ statusEl.textContent='Kein VAPID Key am Server.'; return; }
+      const keyBytes = b64ToUint8(vapid.publicKey);
+      if(keyBytes.length!==65){
+        console.warn('VAPID public key Länge !=65 Bytes', keyBytes.length);
+        statusEl.textContent='Ungültiger VAPID Key (Länge '+keyBytes.length+')';
+        return;
+      }
+      const existing = await registration.pushManager.getSubscription();
+      if(existing){
+        // Falls alter Key anders war, unsubscriben
+        try { const rawKey = existing.options && existing.options.applicationServerKey; if(rawKey && rawKey.byteLength && rawKey.byteLength!==65){ await existing.unsubscribe(); } } catch(_){ }
+      }
+      let sub;
+      try {
+        sub = await registration.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:keyBytes});
+      } catch(err){
+        console.error('subscribe failed', err);
+        statusEl.textContent='Push Subscribe Fehler: '+(err.message||err.name);
+        return;
+      }
+      await fetch('/push/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(sub)});
+  statusEl.textContent='Aktiv.';
+  // Warte kurz bevor refresh, damit getSubscription garantiert greift
+  await new Promise(r=>setTimeout(r,200));
+    } catch(e){ console.warn(e); statusEl.textContent='Fehler beim Aktivieren.'; }
+    await refresh();
+  }
+  async function disable(){ try { const sub = await currentSub(); if(sub){ await sub.unsubscribe(); } statusEl.textContent='Inaktiv.'; } catch(e){ console.warn(e); statusEl.textContent='Fehler beim Deaktivieren.'; } await refresh(); }
+  async function testPush(){ try { const r = await fetch('/push/test',{method:'POST'}).then(r=>r.json()); if(r.sent>0) { statusEl.textContent='Test gesendet.'; } else { statusEl.textContent='Test fehlgeschlagen.'; } } catch(e){ statusEl.textContent='Test Fehler.'; }
+  }
+  btnOn.addEventListener('click', enable);
+  btnOff.addEventListener('click', disable);
+  btnTest.addEventListener('click', testPush);
+  refresh();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Chat{% endblock %}
+
+{% block content %}
+<h1>Chat</h1>
+<div id="chatRoot" class="flex" data-active-room="{{ active_room.id if active_room else '' }}" style="gap:20px;align-items:flex-start;">
+  <div style="width:200px;">
+    <div class="card" style="padding:10px;">
+      <div style="font-weight:600;font-size:14px;margin-bottom:6px;">Räume</div>
+      <ul id="roomList" style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:4px;">
+        {% for r in rooms %}
+          {% set is_active = (active_room and active_room.id==r.id) %}
+          <li><a class="room-link{% if is_active %} active{% endif %}" data-room="{{ r.id }}" href="?room={{ r.id }}">{{ r.name }}</a></li>
+        {% endfor %}
+      </ul>
+      {% if current_user.is_admin %}
+      <form id="createRoomForm" style="margin-top:8px;display:flex;flex-direction:column;gap:6px;">
+        <div style="display:flex;gap:4px;">
+          <input id="newRoomName" class="input" placeholder="Neuer Raum" style="flex:1;" />
+          <button class="btn" type="submit" style="padding:6px 10px;">+</button>
+        </div>
+        <label style="font-size:11px;display:flex;align-items:center;gap:4px;color:#444;">
+          <input type="checkbox" id="chkAdminOnly" /> Nur für Admins sichtbar
+        </label>
+      </form>
+      {% endif %}
+    </div>
+    {% if current_user.is_admin and active_room %}
+    <button id="btnClearRoom" class="btn" style="margin-top:10px;background:#c0392b;width:100%;">Raum leeren</button>
+    {% endif %}
+  </div>
+  <div style="flex:1;">
+    <div id="chatBox" class="card" style="height:400px;overflow:auto;padding:10px;"></div>
+    <form id="chatForm" class="flex" style="margin-top:10px;gap:6px;">
+      <input id="chatInput" class="input" placeholder="Nachricht..." autocomplete="off" />
+      <button class="btn" type="submit">Senden</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+// Echtzeit Chat Script (Socket.IO)
+const activeRoom = (function(){ const el=document.getElementById('chatRoot'); const v=el?el.dataset.activeRoom:''; return v?parseInt(v):null; })();
+let lastId = 0;
+function render(msg){
+  if(msg.room_id !== activeRoom) return;
+  const box=document.getElementById('chatBox');
+  const div=document.createElement('div');
+  div.className='chat-row'; div.style.marginBottom='4px';
+  const me = (msg.user_id === window.CURRENT_USER_ID);
+  div.innerHTML = `<span style="font-size:11px;color:#666;">#${msg.id}</span> `+
+    `<strong style="color:${me?'#2563eb':'#111'}">${me?'Ich':(msg.username||('User '+msg.user_id))}</strong>: `+
+    `<span>${(msg.content||'').replace(/</g,'&lt;')}</span>`;
+  box.appendChild(div); box.scrollTop=box.scrollHeight; lastId = Math.max(lastId, msg.id);
+}
+// Initial Load via REST
+fetch(`/chat/api/messages?room=${activeRoom||''}`).then(r=>r.json()).then(rows=>{rows.forEach(render);});
+// Socket.IO Setup mit Retry (io evtl. noch nicht global verfügbar)
+let s = null;
+function initSocket(){
+  if(s) return;
+  if(window.__socket){ s = window.__socket; }
+  else if(window.io){ try { s = window.io(); window.__socket = s; } catch(e){} }
+  if(!s){ return setTimeout(initSocket, 80); }
+  try { s.emit('chat_join',{room_id:activeRoom}); } catch(e){}
+  s.on('chat_message', m=>{ render(m); });
+  const form = document.getElementById('chatForm');
+  form.addEventListener('submit', e=>{
+    e.preventDefault();
+    const inp=document.getElementById('chatInput');
+    const val=inp.value.trim(); if(!val||!s) return;
+    s.emit('chat_send',{content:val, room_id:activeRoom});
+    inp.value='';
+  });
+}
+initSocket();
+// Raum erstellen (Admin)
+const createForm = document.getElementById('createRoomForm');
+if(createForm){
+  createForm.addEventListener('submit', e=>{
+    e.preventDefault();
+    const val = document.getElementById('newRoomName').value.trim();
+    if(!val) return;
+  const adminOnly = document.getElementById('chkAdminOnly')?.checked || false;
+  fetch('/chat/api/rooms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:val,is_admin_only:adminOnly})})
+      .then(r=>r.json()).then(d=>{ if(d.id){ location.href='?room='+d.id; } });
+  });
+}
+// Raum leeren
+const clearBtn = document.getElementById('btnClearRoom');
+if(clearBtn){
+  clearBtn.addEventListener('click', ()=>{
+    if(!confirm('Alle Nachrichten in diesem Raum löschen?')) return;
+    fetch(`/chat/api/rooms/${activeRoom}/clear`,{method:'POST'}).then(r=>r.json()).then(()=>{ document.getElementById('chatBox').innerHTML=''; lastId=0; });
+  });
+}
+if(clearBtn){
+  clearBtn.addEventListener('click', ()=>{
+    if(!confirm('Alle Nachrichten in diesem Raum archivieren (Soft Delete)?')) return;
+    fetch(`/chat/api/rooms/${activeRoom}/clear`,{method:'POST'}).then(r=>r.json()).then(()=>{ document.getElementById('chatBox').innerHTML=''; lastId=0; });
+  });
+}
+</script>
+<style>
+.room-link{display:block;padding:6px 8px;border-radius:4px;text-decoration:none;font-size:13px;background:#f3f4f6;color:#111;}
+.room-link.active{background:#2563eb;color:#fff;}
+.room-link:hover{background:#e2e8f0;}
+</style>
+{% endblock %}

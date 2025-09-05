@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block title %}Audit Detail{% endblock %}
+{% block content %}
+<h1>Audit Eintrag #{{ log.id }}</h1>
+<ul>
+  <li><strong>Zeit:</strong> {{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</li>
+  <li><strong>User:</strong> {{ log.actor_id }}</li>
+  <li><strong>Aktion:</strong> {{ log.action }}</li>
+  <li><strong>Ziel:</strong> {{ log.target_type }} {{ log.target_id }}</li>
+  <li><strong>Details:</strong><pre style="white-space:pre-wrap;background:#f5f5f5;padding:.6rem;border:1px solid #ddd;border-radius:4px;">{{ log.details or '-' }}</pre></li>
+</ul>
+<p><a href="{{ url_for('admin.audit_list') }}">Zurück</a></p>
+{% endblock %}

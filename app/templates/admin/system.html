@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% block title %}System{% endblock %}
+{% block page_heading %}System{% endblock %}
+{% block content %}
+{% if warnings and warnings|length %}
+<div class="card danger mb-6" style="border-left:4px solid var(--color-accent);">
+  <h3 style="margin-top:0;">Warnungen</h3>
+  <ul style="margin:0; padding-left:18px; font-size:13px; line-height:1.4;">
+    {% for w in warnings %}<li>{{ w }}</li>{% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<div class="grid cols-4 mb-6">
+  <div class="card"><h3>Uptime</h3><div class="metric">{{ sysinfo.uptime_h }}h</div></div>
+  <div class="card"><h3>Speicher (RSS)</h3><div class="metric">{{ sysinfo.memory_rss_mb }}MB</div></div>
+  <div class="card"><h3>Python</h3><div class="metric" style="font-size:1rem;line-height:1.2;">{{ sysinfo.python_impl }}</div></div>
+  <div class="card"><h3>Load</h3><div class="metric">{% if sysinfo.loadavg %}{{ sysinfo.loadavg[0]|round(2) }}{% else %}-{% endif %}</div></div>
+</div>
+<div class="grid cols-3 mb-6">
+  <div class="card">
+    <h3>Statistiken</h3>
+    <ul class="stack" style="font-size:14px;">
+      <li>Benutzer: {{ stats.users_total }}</li>
+      <li>Events: {{ stats.events_total }}</li>
+      <li>Ausgaben: {{ stats.expenses_total }}</li>
+      <li>Nachrichten: {{ stats.messages_total }}</li>
+      <li>Fotos: {{ stats.photos_total }}</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>System</h3>
+    <div class="stack" style="font-size:12px;">
+      <div><strong>Plattform:</strong><br>{{ sysinfo.platform }}</div>
+      <div><strong>PID:</strong> {{ sysinfo.process_pid }}</div>
+      <div><strong>Python:</strong> {{ sysinfo.python }}</div>
+      <div><strong>Working Dir:</strong><br>{{ sysinfo.cwd }}</div>
+      <div><strong>Exec:</strong><br>{{ sysinfo.executable }}</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="flex between center" style="margin-bottom:6px;">
+      <h3 style="margin:0;">Letzte Fehler</h3>
+      <form method="post" action="{{ url_for('admin.system_mail_check') }}" style="margin:0;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <button class="btn outline" style="padding:6px 10px; font-size:12px;" type="submit">Mail-Test</button>
+      </form>
+    </div>
+    <div style="max-height:260px; overflow:auto; font-size:12px;" class="stack">
+      {% for log in error_logs %}
+        <div style="border-bottom:1px solid var(--color-border); padding:4px 0;">
+          <div style="color:var(--color-text-faint);">{{ log.created_at.strftime('%d.%m.%Y %H:%M') }} – {{ log.action }}</div>
+          <div style="white-space:pre-wrap;">{{ (log.details or '')[:240] }}</div>
+        </div>
+      {% else %}
+        <div class="flash">Keine Fehler gefunden</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+<div class="grid cols-2">
+  <div class="card elevated">
+    <h3>Log Auszug</h3>
+    <div style="max-height:320px; overflow:auto; font-family:var(--font-mono, monospace); font-size:11px; line-height:1.35; background:var(--color-bg-alt); padding:8px; border-radius:6px;">
+      {% if log_entries %}
+        {% for l in log_entries %}
+          <div style="white-space:pre; border-bottom:1px solid var(--color-border-faint); padding:2px 0;">{{ l }}</div>
+        {% endfor %}
+      {% else %}
+        <div class="flash">Keine Logeinträge oder Logdatei fehlt</div>
+      {% endif %}
+    </div>
+  </div>
+  <div class="card elevated">
+    <h3>Raw Daten (Debug)</h3>
+    <pre style="max-height:320px;overflow:auto;font-size:11px;">{{ sysinfo | tojson(indent=2) }}</pre>
+  </div>
+</div>
+{% endblock %}

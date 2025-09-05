@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>{% block title %}{% endblock %} – Familien Portal</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}" />
+    <meta name="description" content="Ihr digitales Zuhause für die ganze Familie - Organisieren Sie Termine, Fotos und mehr." />
+    <meta name="theme-color" content="#4285f4" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <div class="app-container">
+        <header class="top-header">
+            <div class="header-left">
+                <a href="{{ url_for('main.index') }}" class="logo">
+                    <i class="fas fa-home"></i>
+                    <span>Familien Portal</span>
+                </a>
+            </div>
+            
+            <nav class="main-nav">
+                {% if current_user.is_authenticated %}
+                    <a href="{{ url_for('main.index') }}" class="nav-item {% if request.endpoint.startswith('main.') %}active{% endif %}">
+                        <i class="fas fa-dashboard"></i> Dashboard
+                    </a>
+                    <a href="{{ url_for('calendar.index') }}" class="nav-item {% if request.endpoint.startswith('calendar.') %}active{% endif %}">
+                        <i class="fas fa-calendar"></i> Kalender
+                    </a>
+                    <a href="{{ url_for('chat.index') }}" class="nav-item {% if request.endpoint.startswith('chat.') %}active{% endif %}">
+                        <i class="fas fa-comments"></i> Chat
+                    </a>
+                    <a href="{{ url_for('photos.index') }}" class="nav-item {% if request.endpoint.startswith('photos.') %}active{% endif %}">
+                        <i class="fas fa-images"></i> Fotos
+                    </a>
+                {% else %}
+                    <a href="{{ url_for('auth.login') }}" class="nav-item {% if request.endpoint == 'auth.login' %}active{% endif %}">
+                        <i class="fas fa-sign-in-alt"></i> Anmelden
+                    </a>
+                    <a href="{{ url_for('auth.register') }}" class="nav-item {% if request.endpoint == 'auth.register' %}active{% endif %}">
+                        <i class="fas fa-user-plus"></i> Registrieren
+                    </a>
+                {% endif %}
+            </nav>
+            
+            <div class="header-right">
+                {% if current_user.is_authenticated %}
+                    <div class="user-menu">
+                        <span class="user-greeting">Hallo, {{ current_user.username }}</span>
+                        <div class="user-dropdown">
+                            <a href="{{ url_for('profile.index') }}" class="dropdown-item">
+                                <i class="fas fa-user"></i> Profil
+                            </a>
+                            {% if current_user.is_admin %}
+                            <a href="{{ url_for('admin.dashboard') }}" class="dropdown-item">
+                                <i class="fas fa-cog"></i> Administration
+                            </a>
+                            {% endif %}
+                            <a href="{{ url_for('auth.logout') }}" class="dropdown-item">
+                                <i class="fas fa-sign-out-alt"></i> Abmelden
+                            </a>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="content-container">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+        
+        <footer class="site-footer">
+            <div class="footer-content">
+                <p>&copy; {{ now.year if now else '2025' }} Familien Portal</p>
+            </div>
+        </footer>
+    </div>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>

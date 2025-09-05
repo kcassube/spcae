@@ -56,11 +56,11 @@ def register():
         db.session.add(user)
         db.session.commit()
         # Default Preferences: alle aktiv für email + socket
-    defaults = ['events','chat','photos','system']  # finance entfernt
+        defaults = ['events','chat','photos','system']  # finance entfernt
         for kind in defaults:
-            db.session.add(NotificationPreference(user_id=user.id, channel='email', kind=kind, enabled=True))
-            db.session.add(NotificationPreference(user_id=user.id, channel='socket', kind=kind, enabled=True))
+            pref = NotificationPreference(user_id=user.id, kind=kind, email=True, socket=True)
+            db.session.add(pref)
         db.session.commit()
-        flash('Glückwunsch, Sie sind nun registriert!')
+        flash('Registrierung erfolgreich! Du kannst dich jetzt anmelden.')
         return redirect(url_for('auth.login'))
     return render_template('auth/register.html', title='Registrieren', form=form)

@@ -44,10 +44,8 @@ def _base_stats():
         'users_total': db.session.scalar(db.select(func.count(User.id))),
         'users_soft_deleted': db.session.scalar(db.select(func.count(User.id)).filter(User.deleted_at.is_not(None))),
         'events_total': db.session.scalar(db.select(func.count(Event.id))),
-    'expenses_total': 0,
         'messages_total': db.session.scalar(db.select(func.count(Message.id))),
-        'photos_total': db.session.scalar(db.select(func.count(Photo.id))),
-        'recurring_active': db.session.scalar(db.select(func.count(RecurringTransaction.id)).filter(RecurringTransaction.active.is_(True)))
+        'photos_total': db.session.scalar(db.select(func.count(Photo.id)))
     }
 
 @bp.route('/')
@@ -154,7 +152,6 @@ def api_users():
             'email': u.email,
             'is_admin': u.is_admin,
             'deleted_at': u.deleted_at.isoformat() if u.deleted_at else None,
-            'expenses_count': u.expenses.count(),
             'photos_count': u.photos.count(),
             'messages_sent': u.messages_sent.count(),
         } for u in users
@@ -277,17 +274,6 @@ def export_events_csv():
             yield f"{e.id};{e.title};{e.start_time.isoformat()};{e.end_time.isoformat()};{int(e.all_day)};{e.event_type or ''};{int(e.is_important)}\n"
     return Response(generate(), mimetype='text/csv', headers={'Content-Disposition':'attachment; filename=events.csv'})
 
-@bp.route('/export/expenses.csv')
-@login_required
-@admin_required
-def export_expenses_csv():
-    rows = Expense.query.order_by(Expense.date.asc()).all()
-    def generate():
-        yield 'id;amount;description;category;date;user_id\n'
-        for ex in rows:
-            yield f"{ex.id};{ex.amount};{ex.description};{ex.category};{ex.date.isoformat()};{ex.user_id}\n"
-    return Response(generate(), mimetype='text/csv', headers={'Content-Disposition':'attachment; filename=expenses.csv'})
-
 @bp.route('/export/audit.csv')
 @login_required
 @admin_required
@@ -321,7 +307,6 @@ def system_info():
     stats = {
         'users_total': db.session.scalar(db.select(func.count(User.id))),
         'events_total': db.session.scalar(db.select(func.count(Event.id))),
-        'expenses_total': db.session.scalar(db.select(func.count(Expense.id))),
         'messages_total': db.session.scalar(db.select(func.count(Message.id))),
         'photos_total': db.session.scalar(db.select(func.count(Photo.id)))
     }

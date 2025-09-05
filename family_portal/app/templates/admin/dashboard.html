@@ -8,7 +8,6 @@
   <!-- Ausgaben entfernt -->
   <div class="card"><h4>Nachrichten</h4><div class="metric">{{ stats.messages_total }}</div></div>
   <div class="card"><h4>Fotos</h4><div class="metric">{{ stats.photos_total }}</div></div>
-  <div class="card"><h4>Wiederkehrend aktiv</h4><div class="metric">{{ stats.recurring_active }}</div></div>
 </div>
 
 <!-- Finanzübersicht entfernt -->
@@ -53,7 +52,7 @@
   </div>
   <div class="table-wrap" style="max-height:260px;overflow:auto;">
     <table class="table tiny" id="userTbl">
-      <thead><tr><th>ID</th><th>User</th><th>Admin</th><th>Ausgaben</th><th>Fotos</th><th>Msgs</th></tr></thead>
+      <thead><tr><th>ID</th><th>User</th><th>Admin</th><th>Fotos</th><th>Msgs</th></tr></thead>
       <tbody></tbody>
     </table>
   </div>
@@ -68,7 +67,7 @@ async function reloadUsers(){
   tbody.innerHTML='';
   data.slice(0,10).forEach(u=>{
     const tr=document.createElement('tr');
-    tr.innerHTML = `<td>${u.id}</td><td>${u.username}</td><td>${u.is_admin?'✔':''}</td><td>${u.expenses_count}</td><td>${u.photos_count}</td><td>${u.messages_sent}</td>`;
+    tr.innerHTML = `<td>${u.id}</td><td>${u.username}</td><td>${u.is_admin?'✔':''}</td><td>${u.photos_count}</td><td>${u.messages_sent}</td>`;
     tbody.appendChild(tr);
   });
 }

@@ -98,6 +98,9 @@ class ChatMessage(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     room_id = db.Column(db.Integer, db.ForeignKey('chat_rooms.id'), index=True, default=1)
     archived_at = db.Column(db.DateTime, index=True)
+    
+    # Beziehung zum User
+    user = db.relationship('User', backref='chat_messages')
 
 class ChatRoom(db.Model):
     __tablename__ = 'chat_rooms'

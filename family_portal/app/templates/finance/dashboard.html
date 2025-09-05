@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+
+{% block title %}Finanz-Dashboard{% endblock %}
+
+{% block content %}
+<div class="finance-container">
+    <div class="finance-content">
+        <h1>Finanz-Übersicht</h1>
+        
+        <!-- Konten-Übersicht -->
+        <div class="card">
+            <h3>Konten</h3>
+            <div id="accounts-list" class="grid cols-2">
+                <!-- Wird per JS geladen -->
+            </div>
+        </div>
+        
+        <!-- Monatliche Zusammenfassung -->
+        <div class="grid cols-3">
+            <div class="card">
+                <h3>Einnahmen (Monat)</h3>
+                <div class="metric" id="income-month">-</div>
+            </div>
+            <div class="card">
+                <h3>Ausgaben (Monat)</h3>
+                <div class="metric" id="expense-month">-</div>
+            </div>
+            <div class="card">
+                <h3>Saldo (Monat)</h3>
+                <div class="metric" id="balance-month">-</div>
+            </div>
+        </div>
+        
+        <!-- Budget-Progress -->
+        <div class="card">
+            <h3>Kategorien & Budgets</h3>
+            <div id="budget-progress">
+                <!-- Wird per JS geladen -->
+            </div>
+        </div>
+        
+        <!-- Charts -->
+        <div class="grid cols-2">
+            <div class="card">
+                <h3>Jahresverlauf</h3>
+                <canvas id="year-chart"></canvas>
+            </div>
+            <div class="card">
+                <h3>Kategorie-Anteil</h3>
+                <canvas id="donut-chart"></canvas>
+            </div>
+        </div>
+        
+        <!-- Schnellaktionen -->
+        <div class="quick-actions">
+            <button class="btn" onclick="openModal('income')">+ Einnahme</button>
+            <button class="btn outline" onclick="openModal('expense')">+ Ausgabe</button>
+            <button class="btn outline" onclick="location.href='/finance/accounts'">Konten verwalten</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal für neue Transaktion -->
+<div id="transaction-modal" class="modal-backdrop">
+    <div class="modal">
+        <h3 id="modal-title">Neue Transaktion</h3>
+        <form id="transaction-form">
+            <select id="kind" required>
+                <option value="income">Einnahme</option>
+                <option value="expense">Ausgabe</option>
+            </select>
+            <input type="number" id="amount" placeholder="Betrag" step="0.01" required>
+            <input type="text" id="description" placeholder="Beschreibung" required>
+            <select id="account-id">
+                <!-- Wird per JS geladen -->
+            </select>
+            <button type="submit" class="btn">Speichern</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadAccounts();
+    loadSummary();
+    loadBudgets();
+    loadCharts();
+    
+    // Modal-Funktionen
+    window.openModal = function(kind) {
+        document.getElementById('kind').value = kind;
+        document.getElementById('modal-title').textContent = kind === 'income' ? 'Neue Einnahme' : 'Neue Ausgabe';
+        document.getElementById('transaction-modal').classList.add('open');
+    };
+    
+    document.getElementById('transaction-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const data = {
+            kind: document.getElementById('kind').value,
+            amount: parseFloat(document.getElementById('amount').value),
+            description: document.getElementById('description').value,
+            accountId: document.getElementById('account-id').value
+        };
+        fetch('/finance/api/item', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        }).then(() => {
+            document.getElementById('transaction-modal').classList.remove('open');
+            loadSummary();
+        });
+    });
+});
+
+function loadAccounts() {
+    fetch('/finance/api/accounts')
+        .then(r => r.json())
+        .then(data => {
+            const list = document.getElementById('accounts-list');
+            list.innerHTML = data.map(acc => `
+                <div class="account-item">
+                    <strong>${acc.name}</strong>: ${acc.balance.toFixed(2)} €
+                </div>
+            `).join('');
+            // Für Modal-Select
+            const select = document.getElementById('account-id');
+            select.innerHTML = '<option value="">Kein Konto</option>' + data.map(acc => `<option value="${acc.id}">${acc.name}</option>`).join('');
+        });
+}
+
+function loadSummary() {
+    const now = new Date();
+    fetch(`/finance/api/summary?year=${now.getFullYear()}&month=${now.getMonth() + 1}`)
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('income-month').textContent = data.income.toFixed(2) + ' €';
+            document.getElementById('expense-month').textContent = data.expense.toFixed(2) + ' €';
+            document.getElementById('balance-month').textContent = (data.income - data.expense).toFixed(2) + ' €';
+        });
+}
+
+function loadBudgets() {
+    fetch('/finance/api/budgets')
+        .then(r => r.json())
+        .then(data => {
+            const progress = document.getElementById('budget-progress');
+            progress.innerHTML = data.categories.map(cat => `
+                <div class="budget-item">
+                    <span>${cat.name}</span>
+                    <div class="progress-bar" style="width: ${Math.min(cat.percent || 0, 100)}%"></div>
+                    <small>${cat.spent.toFixed(2)} / ${cat.budget?.toFixed(2) || '∞'} €</small>
+                </div>
+            `).join('');
+        });
+}
+
+function loadCharts() {
+    fetch('/finance/api/summary?year=' + new Date().getFullYear())
+        .then(r => r.json())
+        .then(data => {
+            // Jahres-Chart
+            const ctx = document.getElementById('year-chart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.months.map(m => m.month),
+                    datasets: [{
+                        label: 'Einnahmen',
+                        data: data.months.map(m => m.income),
+                        backgroundColor: '#059669'
+                    }, {
+                        label: 'Ausgaben',
+                        data: data.months.map(m => m.expense),
+                        backgroundColor: '#dc2626'
+                    }]
+                }
+            });
+            
+            // Donut-Chart für Kategorien
+            const donutCtx = document.getElementById('donut-chart').getContext('2d');
+            new Chart(donutCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: data.categories?.map(c => c.name) || [],
+                    datasets: [{
+                        data: data.categories?.map(c => c.spent) || [],
+                        backgroundColor: ['#2563eb', '#dc2626', '#059669']
+                    }]
+                }
+            });
+        });
+}
+</script>
+{% endblock %}

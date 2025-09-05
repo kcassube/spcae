@@ -41,7 +41,6 @@
                             <span>Kalender</span>
                         </a>
                     </li>
-                    <!-- Finance entfernt -->
                     <li class="nav-item">
                         <a href="{{ url_for('chat.index') }}" class="{% if request.endpoint.startswith('chat.') %}active{% endif %}">
                             <i class="fas fa-comments"></i>
@@ -100,149 +99,72 @@
                     </li>
                 </ul>
             </nav>
-            {% else %}
-            <nav class="nav-group">
-                <div class="nav-label">Zugang</div>
-                <ul class="nav-items">
-                    <li class="nav-item">
-                        <a href="{{ url_for('auth.login') }}" class="{% if request.endpoint=='auth.login' %}active{% endif %}">
-                            <i class="fas fa-sign-in-alt"></i>
-                            <span>Anmelden</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="{{ url_for('auth.register') }}" class="{% if request.endpoint=='auth.register' %}active{% endif %}">
-                            <i class="fas fa-user-plus"></i>
-                            <span>Registrieren</span>
-                        </a>
-                    </li>
-                </ul>
-            </nav>
             {% endif %}
         </aside>
 
-        <main class="main-content">
-            <div class="topbar">
-                <div class="topbar-left">
-                    <button id="menuBtn" class="menu-btn">
+        <div class="main-wrapper">
+            <header class="top-header">
+                <div class="mobile-header">
+                    <button class="sidebar-toggle" id="sidebarToggle">
                         <i class="fas fa-bars"></i>
                     </button>
-                    <h1 class="page-title">{% block page_title %}{% endblock %}</h1>
+                    <a href="{{ url_for('main.index') }}" class="mobile-logo">
+                        <i class="fas fa-home"></i>
+                        <span>Familien Portal</span>
+                    </a>
                 </div>
-                <div class="topbar-right">
+                
+                <div class="header-actions">
                     {% if current_user.is_authenticated %}
-                    <div class="user-menu">
-                        <span class="user-name">{{ current_user.username }}</span>
+                    <div class="notification-center">
+                        <button class="notification-toggle">
+                            <i class="fas fa-bell"></i>
+                            <span class="notification-badge" id="notificationBadge"></span>
+                        </button>
+                        <div class="notification-dropdown" id="notificationDropdown">
+                            <div class="notification-header">
+                                <h3>Benachrichtigungen</h3>
+                                <a href="#" id="markAllRead">Alle gelesen</a>
+                            </div>
+                            <div class="notification-list" id="notificationList">
+                                <div class="notification-empty">Keine neuen Benachrichtigungen</div>
+                            </div>
+                            <div class="notification-footer">
+                                <a href="{{ url_for('profile.index') }}">Profil öffnen</a>
+                            </div>
+                        </div>
                     </div>
                     {% endif %}
-                    <button id="themeToggle" class="theme-toggle">
-                        <i class="fas fa-moon"></i>
-                    </button>
                 </div>
-            </div>
+            </header>
 
-            {% with messages = get_flashed_messages() %}
-                {% if messages %}
-                    {% for message in messages %}
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle"></i>
-                            <span>{{ message }}</span>
-                            <button class="alert-close">&times;</button>
-                        </div>
-                    {% endfor %}
-                {% endif %}
-            {% endwith %}
-
-            <div class="content-wrapper">
-                {% block content %}{% endblock %}
-            </div>
-        </main>
+            <main class="main-content">
+                <div class="content-container">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }}">
+                                    {{ message }}
+                                    <button type="button" class="close-alert">&times;</button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+                    
+                    {% block content %}{% endblock %}
+                </div>
+            </main>
+            
+            <footer class="main-footer">
+                <div class="footer-content">
+                    <p>&copy; {{ now.year if now else '2025' }} Familien Portal</p>
+                </div>
+            </footer>
+        </div>
     </div>
-
-    <script src="{{ url_for('static', filename='js/enterprise-ui.js') }}"></script>
-    <script>
-    // CSRF für fetch
-    (function(){
-        const token = document.querySelector('meta[name="csrf-token"]').content;
-        const _f = window.fetch;
-        window.fetch = (r,i)=>{i=i||{};i.headers=i.headers||{};if(typeof i.headers.append==='function'){i.headers.append('X-CSRFToken',token);}else{i.headers['X-CSRFToken']=token;}return _f(r,i);};
-    })();
-    // CSRF Hidden Field für klassische POST-Forms automatisch nachrüsten
-    (function(){
-        const token = document.querySelector('meta[name="csrf-token"]').content;
-        document.addEventListener('DOMContentLoaded', ()=>{
-            document.querySelectorAll('form[method="post"]').forEach(f=>{
-                if(!f.querySelector('input[name="csrf_token"]')){
-                    const inp = document.createElement('input');
-                    inp.type='hidden';
-                    inp.name='csrf_token';
-                    inp.value=token;
-                    f.appendChild(inp);
-                }
-            });
-        });
-    })();
-    // Sidebar Toggle (mobile)
-    document.getElementById('menuBtn')?.addEventListener('click',()=>{document.getElementById('sidebar').classList.toggle('open');});
-    // Theme Toggle
-    const themeBtn = document.getElementById('themeToggle');
-    function applyTheme(t){ document.documentElement.setAttribute('data-theme',t); localStorage.setItem('theme',t); themeBtn.innerHTML = t==='dark' ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>'; }
-    const saved = localStorage.getItem('theme') || 'light'; applyTheme(saved);
-    themeBtn.addEventListener('click',()=>{ const next = (document.documentElement.getAttribute('data-theme')==='light')?'dark':'light'; applyTheme(next); });
-    </script>
     
-    {% if current_user.is_authenticated %}
-    <script src="{{ url_for('static', filename='js/socket.io.full.min.js') }}?v={{ static_version }}" onerror="console.warn('Local socket.io load failed, switching to CDN');var s=document.createElement('script');s.src='https://cdn.socket.io/4.7.5/socket.io.min.js';document.head.appendChild(s);"></script>
-    <script>
-    (function(){
-        const s = io({transports:['websocket','polling']});
-    window.__socket = s;
-        const area = document.createElement('div');
-        area.style.position='fixed';area.style.top='8px';area.style.right='8px';area.style.zIndex='3000';area.style.display='flex';area.style.flexDirection='column';area.style.gap='6px';
-        document.body.appendChild(area);
-        function pushNote(kind, payload){
-            const box = document.createElement('div');
-            box.className='note-pop';
-            box.style.background='var(--note-bg,#2563eb)';
-            box.style.color='#fff';
-            box.style.padding='10px 14px';
-            box.style.borderRadius='8px';
-            box.style.fontSize='13px';
-            box.style.boxShadow='0 4px 16px rgba(0,0,0,.25)';
-            box.innerHTML = `<strong style="font-size:12px;letter-spacing:.5px;">${kind.toUpperCase()}</strong><br>`+
-                            `<span>${(payload && (payload.message||payload.title||JSON.stringify(payload)))}</span>`;
-            area.appendChild(box);
-            setTimeout(()=>{box.style.opacity='0';box.style.transition='opacity .6s';setTimeout(()=>box.remove(),650);},6000);
-        }
-        s.on('notification', data=>{ try { pushNote(data.kind, data.payload || {}); } catch(e){} });
-        // Web Push Registrierung
-        async function ensurePush(){
-            if(!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-            try {
-                const reg = await navigator.serviceWorker.register('/sw.js');
-                let perm = Notification.permission;
-                if(perm === 'default') perm = await Notification.requestPermission();
-                if(perm !== 'granted') return;
-                // VAPID Public Key holen
-                const r = await fetch('/push/vapid_public');
-                const { publicKey } = await r.json();
-                if(!publicKey){ console.warn('No VAPID public key'); return; }
-                const convKey = urlBase64ToUint8Array(publicKey);
-                const sub = await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey: convKey});
-                await fetch('/push/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(sub)});
-            } catch(e){ console.warn('push init failed', e); }
-        }
-        function urlBase64ToUint8Array(base64String) {
-            const padding = '='.repeat((4 - base64String.length % 4) % 4);
-            const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-            const rawData = window.atob(base64);
-            const outputArray = new Uint8Array(rawData.length);
-            for (let i = 0; i < rawData.length; ++i) { outputArray[i] = rawData.charCodeAt(i); }
-            return outputArray;
-        }
-        ensurePush();
-    })();
-    </script>
-    {% endif %}
+    <script src="https://cdn.jsdelivr.net/npm/socket.io@4/dist/socket.io.min.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block scripts %}{% endblock %}
 </body>
 </html>

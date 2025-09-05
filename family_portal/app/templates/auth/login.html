@@ -1,25 +1,53 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h1>Anmelden</h1>
-    <form action="" method="post" novalidate>
-        {{ form.hidden_tag() }}
-        <p>
-            {{ form.username.label }}<br>
-            {{ form.username(size=32) }}
-            {% for error in form.username.errors %}
-            <span style="color: red;">[{{ error }}]</span>
-            {% endfor %}
-        </p>
-        <p>
-            {{ form.password.label }}<br>
-            {{ form.password(size=32) }}
-            {% for error in form.password.errors %}
-            <span style="color: red;">[{{ error }}]</span>
-            {% endfor %}
-        </p>
-        <p>{{ form.remember_me() }} {{ form.remember_me.label }}</p>
-        <p>{{ form.submit() }}</p>
-    </form>
-    <p>Neu hier? <a href="{{ url_for('auth.register') }}">Klicken Sie hier zum Registrieren!</a></p>
+<div class="content-wrapper">
+    <div class="max-w-md mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h1 class="text-2xl font-bold text-center">Anmelden</h1>
+            </div>
+            <div class="card-body">
+                <form action="" method="post" novalidate>
+                    {{ form.hidden_tag() }}
+
+                    <div class="form-group">
+                        {{ form.username.label(class="form-label") }}
+                        {{ form.username(class="form-control", size=32) }}
+                        {% for error in form.username.errors %}
+                        <div class="text-red-500 text-sm mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="form-group">
+                        {{ form.password.label(class="form-label") }}
+                        {{ form.password(class="form-control", size=32) }}
+                        {% for error in form.password.errors %}
+                        <div class="text-red-500 text-sm mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">
+                            {{ form.remember_me() }} {{ form.remember_me.label.text }}
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        {{ form.submit(class="btn btn-primary w-full") }}
+                    </div>
+                </form>
+
+                <div class="text-center mt-4">
+                    <p class="text-gray-600">
+                        Neu hier?
+                        <a href="{{ url_for('auth.register') }}" class="text-primary-600 hover:text-primary-700 font-medium">
+                            Klicken Sie hier zum Registrieren!
+                        </a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

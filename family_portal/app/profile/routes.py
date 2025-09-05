@@ -37,7 +37,7 @@ def index():
     if request.method == 'POST':
         bio = (request.form.get('bio') or '').strip()
         profile.bio = bio
-    kinds = ['events','chat','photos','system']  # finance entfernt
+        kinds = ['events','chat','photos','system']  # finance entfernt
         channels = ['email','socket']
         # Bestehende Prefs laden in Dict
         existing = {(p.kind, p.channel): p for p in NotificationPreference.query.filter_by(user_id=current_user.id).all()}

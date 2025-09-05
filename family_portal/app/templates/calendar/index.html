@@ -401,6 +401,13 @@ document.addEventListener('DOMContentLoaded', () => {
         modeAll.addEventListener('change', updateMode);
         modeTimed.addEventListener('change', updateMode);
         updateMode();
+
+        // Prüfen auf create=true Parameter in der URL
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('create') === 'true') {
+            document.querySelector('.calendar-panel').classList.add('open');
+            document.getElementById('eventTitle').focus();
+        }
 });
 </script>
 {% endblock %}

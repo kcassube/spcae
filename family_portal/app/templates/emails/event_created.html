@@ -1,0 +1,14 @@
+{% extends 'emails/base_email.html' %}
+{% block body %}
+<h1>Neues Ereignis erstellt</h1>
+<p>Hallo {{ username }},</p>
+<p>Ein neues Ereignis wurde soeben in deinem Kalender erstellt.</p>
+<p><strong>{{ event.title }}</strong></p>
+<p>
+  Datum: {{ event.start_time.strftime('%d.%m.%Y') }}{% if not event.all_day %} {{ event.start_time.strftime('%H:%M') }}{% endif %}<br>
+  {% if event.end_time and not event.all_day %}Ende: {{ event.end_time.strftime('%H:%M') }}<br>{% endif %}
+  Typ: {{ event.event_type or 'standard' }}{% if event.is_important %} (wichtig){% endif %}
+</p>
+{% if event.description %}<p>{{ event.description|e }}</p>{% endif %}
+<p><a href="{{ portal_url }}" class="btn">Zum Kalender</a></p>
+{% endblock %}

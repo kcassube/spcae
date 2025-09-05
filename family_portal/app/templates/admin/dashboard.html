@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% block title %}Admin Dashboard{% endblock %}
+{% block content %}
+<h1 style="margin-top:0;">System Dashboard</h1>
+<div class="grid cols-6 mb-5">
+  <div class="card"><h4>Benutzer</h4><div class="metric">{{ stats.users_total }}</div><div class="tiny muted">davon gelöscht: {{ stats.users_soft_deleted }}</div></div>
+  <div class="card"><h4>Events</h4><div class="metric">{{ stats.events_total }}</div></div>
+  <!-- Ausgaben entfernt -->
+  <div class="card"><h4>Nachrichten</h4><div class="metric">{{ stats.messages_total }}</div></div>
+  <div class="card"><h4>Fotos</h4><div class="metric">{{ stats.photos_total }}</div></div>
+  <div class="card"><h4>Wiederkehrend aktiv</h4><div class="metric">{{ stats.recurring_active }}</div></div>
+</div>
+
+<!-- Finanzübersicht entfernt -->
+
+<h2>Aktivität (30 Tage)</h2>
+<div class="grid cols-4 mb-5">
+  <div class="card"><div class="label">Events</div><div class="metric">{{ activity.events_30d }}</div></div>
+  <div class="card"><div class="label">Nachrichten</div><div class="metric">{{ activity.messages_30d }}</div></div>
+  <div class="card"><div class="label">Fotos</div><div class="metric">{{ activity.photos_30d }}</div></div>
+  <!-- Ausgaben Aktivität entfernt -->
+</div>
+
+<div class="grid cols-2 mb-6">
+  <div class="card">
+    <h3>Letzte Events</h3>
+    <ul class="list flat small" style="max-height:240px;overflow:auto;">
+      {% for e in recent_events %}
+        <li><strong>{{ e.title }}</strong><br><span class="muted">{{ e.start_time.strftime('%d.%m.%Y %H:%M') }}</span></li>
+      {% else %}
+        <li class="muted">Keine</li>
+      {% endfor %}
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Audit (Letzte 15)</h3>
+    <ul class="list flat small" style="max-height:240px;overflow:auto;">
+      {% for l in audit_logs %}
+        <li><strong>{{ l.action }}</strong> <span class="muted">{{ l.created_at.strftime('%H:%M:%S') }}</span><br><span class="xxs">{{ l.target_type }} {{ l.target_id }}</span></li>
+      {% else %}
+        <li class="muted">Keine</li>
+      {% endfor %}
+    </ul>
+    <div class="mt-2"><a class="btn outline small" href="{{ url_for('admin.audit_list') }}">Audit durchsuchen</a></div>
+  </div>
+</div>
+
+<h2>Benutzer-Schnellansicht</h2>
+<div id="userQuick" class="card">
+  <div class="flex between center mb-2">
+    <strong>Top 10 Benutzer (Alphabet.)</strong>
+    <button class="btn tiny" onclick="reloadUsers()">Neu laden</button>
+  </div>
+  <div class="table-wrap" style="max-height:260px;overflow:auto;">
+    <table class="table tiny" id="userTbl">
+      <thead><tr><th>ID</th><th>User</th><th>Admin</th><th>Ausgaben</th><th>Fotos</th><th>Msgs</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="mt-2 xxs muted">Quelle: /admin/api/users</div>
+</div>
+
+<script>
+async function reloadUsers(){
+  const r = await fetch("{{ url_for('admin.api_users') }}");
+  const data = await r.json();
+  const tbody = document.querySelector('#userTbl tbody');
+  tbody.innerHTML='';
+  data.slice(0,10).forEach(u=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML = `<td>${u.id}</td><td>${u.username}</td><td>${u.is_admin?'✔':''}</td><td>${u.expenses_count}</td><td>${u.photos_count}</td><td>${u.messages_sent}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+reloadUsers();
+</script>
+
+<style>
+.metric{font-size:2rem;font-weight:600;}
+.big{font-size:1.6rem;font-weight:600;}
+.neg{color:var(--color-danger);}
+.label{font-size:.75rem;text-transform:uppercase;letter-spacing:.5px;color:var(--color-text-faint);margin-bottom:4px;}
+.table.tiny th,.table.tiny td{padding:4px 6px;font-size:12px;}
+.xxs{font-size:10px;}
+</style>
+{% endblock %}

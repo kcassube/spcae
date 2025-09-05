@@ -1,0 +1,472 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+{% if current_user.is_anonymous %}
+    <div class="auth-welcome">
+        <div class="auth-card">
+            <div class="auth-header">
+                <i class="fas fa-home fa-3x"></i>
+                <h1>Willkommen im Familien Portal</h1>
+                <p>Ihr digitales Zuhause für die ganze Familie</p>
+            </div>
+            <div class="auth-actions">
+                <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-lg">
+                    <i class="fas fa-sign-in-alt"></i> Anmelden
+                </a>
+                <a href="{{ url_for('auth.register') }}" class="btn btn-secondary btn-lg">
+                    <i class="fas fa-user-plus"></i> Registrieren
+                </a>
+            </div>
+        </div>
+    </div>
+{% else %}
+    <!-- Dashboard Content -->
+    <div class="dashboard">
+        <!-- Welcome Card -->
+        <div class="welcome-card">
+            <div class="welcome-content">
+                <h2>Willkommen zurück, {{ current_user.username }}</h2>
+                <p class="text-muted">{{ now.strftime('%d. %B %Y') }}</p>
+            </div>
+            <div class="welcome-actions">
+                <!-- Finance Button entfernt -->
+                <button class="btn btn-secondary" onclick="location.href='{{ url_for('calendar.get_events') }}'">
+                    <i class="fas fa-calendar-plus"></i>
+                    <span>Termin erstellen</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="stats-grid">
+            <!-- Finanz-Statistiken entfernt -->
+
+            <!-- Calendar Stats -->
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-icon" style="background: rgba(5, 150, 105, 0.1)">
+                        <i class="fas fa-calendar-check"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Termine</h3>
+                        <div class="stat-value">{{ upcoming_events|length }}</div>
+                    </div>
+                </div>
+                <div class="upcoming-events">
+                    {% for event in upcoming_events[:3] %}
+                    <div class="event-item">
+                        <i class="fas fa-calendar-day"></i>
+                        <span>{{ event.title }}</span>
+                        <span class="event-date">{{ event.start_time.strftime('%d.%m.') }}</span>
+                    </div>
+                    {% else %}
+                    <p class="empty-state">Keine anstehenden Termine</p>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Chat Stats -->
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-icon" style="background: rgba(220, 38, 38, 0.1)">
+                        <i class="fas fa-comments"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Chat</h3>
+                        <div class="stat-value">{{ chat_rows|length }}</div>
+                    </div>
+                </div>
+                <div class="recent-messages">
+                    {% for msg in chat_rows[:3] %}
+                    <div class="message-item">
+                        <div class="message-sender">{{ msg.user.username }}</div>
+                        <div class="message-preview">{{ msg.content|truncate(30) }}</div>
+                    </div>
+                    {% else %}
+                    <p class="empty-state">Keine neuen Nachrichten</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Photos Stats -->
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-icon" style="background: rgba(245, 158, 11, 0.1)">
+                        <i class="fas fa-images"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Fotos</h3>
+                        <div class="stat-value">{{ photos|length }}</div>
+                    </div>
+                </div>
+                <div class="photo-grid">
+                    {% for photo in photos[:6] %}
+                    <div class="photo-thumbnail" style="background-image: url('{{ url_for('photos.serve_photo', filename=photo.filename) }}')"></div>
+                    {% else %}
+                    <p class="empty-state">Keine Fotos vorhanden</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Access -->
+        <div class="quick-access">
+            <h3>Schnellzugriff</h3>
+            <div class="quick-actions">
+                <!-- Finance Quick Action entfernt -->
+                <a href="{{ url_for('calendar.index') }}" class="quick-action-btn">
+                    <i class="fas fa-calendar-plus"></i>
+                    <span>Neuer Termin</span>
+                </a>
+                <a href="{{ url_for('photos.upload') }}" class="quick-action-btn">
+                    <i class="fas fa-upload"></i>
+                    <span>Foto hochladen</span>
+                </a>
+                <a href="{{ url_for('chat.index') }}" class="quick-action-btn">
+                    <i class="fas fa-comment"></i>
+                    <span>Chat öffnen</span>
+                </a>
+                {% if current_user.is_admin %}
+                <a href="{{ url_for('admin.dashboard') }}" class="quick-action-btn admin">
+                    <i class="fas fa-cog"></i>
+                    <span>Administration</span>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+{% endif %}
+<div class="dashboard-container">
+    <!-- Welcome Section -->
+    <div class="welcome-section">
+        <div class="welcome-header">
+            <h1>Willkommen zurück, {{ current_user.username }}</h1>
+            <p class="text-muted">{{ now.strftime('%d. %B %Y') }}</p>
+        </div>
+        <div class="quick-actions">
+            <!-- Neue Buchung (Finance) entfernt -->
+            <button class="btn btn-secondary" onclick="location.href='{{ url_for('calendar.index') }}'">
+                <i class="fas fa-calendar-plus"></i> Termin erstellen
+            </button>
+        </div>
+    </div>
+
+    <!-- Statistics Overview -->
+    <div class="stats-overview">
+        <!-- Financial Overview -->
+    <!-- Finanz-Kontostand Karte entfernt -->
+
+        <!-- Calendar Events -->
+        <div class="stat-card">
+            <div class="stat-header">
+                <div class="stat-icon" style="background: rgba(5, 150, 105, 0.1)">
+                    <i class="fas fa-calendar-check" style="color: var(--color-success)"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>Anstehende Termine</h3>
+                    <div class="stat-value">{{ upcoming_events|length if upcoming_events else 0 }}</div>
+                </div>
+            </div>
+            {% if upcoming_events %}
+            <div class="event-list">
+                {% for event in upcoming_events[:3] %}
+                <div class="event-item">
+                    <i class="fas fa-clock"></i>
+                    <span>{{ event.title }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Latest Messages -->
+        <div class="stat-card">
+            <div class="stat-header">
+                <div class="stat-icon" style="background: rgba(220, 38, 38, 0.1)">
+                    <i class="fas fa-comments" style="color: var(--color-danger)"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>Neue Nachrichten</h3>
+                    <div class="stat-value">{{ unread_messages|default(0) }}</div>
+                </div>
+            </div>
+            {% if recent_messages %}
+            <div class="message-preview">
+                {% for msg in recent_messages[:2] %}
+                <div class="message-item">
+                    <span class="message-sender">{{ msg.sender }}</span>
+                    <span class="message-text">{{ msg.text|truncate(30) }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Recent Activities -->
+        <div class="stat-card">
+            <div class="stat-header">
+                <div class="stat-icon" style="background: rgba(245, 158, 11, 0.1)">
+                    <i class="fas fa-chart-line" style="color: var(--color-warning)"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>Letzte Aktivitäten</h3>
+                    <div class="stat-value">{{ recent_activities|length if recent_activities else 0 }}</div>
+                </div>
+            </div>
+            {% if recent_activities %}
+            <div class="activity-list">
+                {% for activity in recent_activities[:3] %}
+                <div class="activity-item">
+                    <i class="fas {{ activity.icon }}"></i>
+                    <span>{{ activity.description }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+.dashboard-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: var(--space-6);
+}
+
+.welcome-section {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+    border-radius: var(--radius-lg);
+    padding: var(--space-6);
+    color: white;
+    margin-bottom: var(--space-6);
+    box-shadow: var(--shadow-lg);
+}
+
+.welcome-header {
+    margin-bottom: var(--space-4);
+}
+
+.welcome-header h1 {
+    font-size: 1.875rem;
+    font-weight: 600;
+    margin-bottom: var(--space-2);
+}
+
+.text-muted {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.quick-actions {
+    display: flex;
+    gap: var(--space-3);
+    margin-top: var(--space-4);
+}
+
+.stats-overview {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
+}
+
+.stat-card {
+    background: white;
+    padding: var(--space-4);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    transition: transform var(--transition-normal);
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.stat-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+}
+
+.stat-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md);
+    background: var(--color-primary-light);
+    color: var(--color-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+}
+
+.stat-info h3 {
+    font-size: 0.875rem;
+    color: var(--color-gray-600);
+    margin: 0;
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--color-gray-900);
+}
+
+.activity-section {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: var(--space-4);
+}
+
+@media (max-width: 1024px) {
+    .activity-section {
+        grid-template-columns: 1fr;
+    }
+}
+
+.auth-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-4);
+    background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary));
+}
+
+.auth-card {
+    background: white;
+    padding: var(--space-6);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+    max-width: 400px;
+    width: 100%;
+    text-align: center;
+}
+
+.auth-header {
+    margin-bottom: var(--space-6);
+}
+
+.auth-header i {
+    color: var(--color-primary);
+    margin-bottom: var(--space-4);
+}
+
+.auth-header h1 {
+    font-size: 1.5rem;
+    color: var(--color-gray-900);
+    margin-bottom: var(--space-2);
+}
+
+.auth-header p {
+    color: var(--color-gray-600);
+}
+
+.auth-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.btn-lg {
+    padding: var(--space-4);
+    font-size: 1rem;
+}
+.kpi-row{display:flex;gap:12px;}
+.kpi{flex:1;background:var(--kpi-bg,#f1f5f9);padding:10px;border-radius:8px;display:flex;flex-direction:column;gap:4px;}
+[data-theme=dark] .kpi{background:#1f2937;}
+.kpi span.value{font-size:20px;font-weight:600;}
+.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;}
+.list li{font-size:13px;display:flex;justify-content:space-between;gap:12px;}
+.photos-mini{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+.photos-mini img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:4px;}
+.chat-bubble{font-size:12px;padding:6px 8px;background:#e2e8f0;border-radius:6px;}
+[data-theme=dark] .chat-bubble{background:#374151;}
+.section-title{font-size:14px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:#64748b;}
+.empty{font-size:12px;color:#888;}
+.bal-pos{color:#059669;}
+.bal-neg{color:#dc2626;}
+.chat-bubble .me-user{color:var(--accent,#2563eb);}
+.chat-bubble .other-user{color:#111;}
+[data-theme=dark] .chat-bubble .other-user{color:#eee;}
+</style>
+<h1 style="margin-bottom:4px;">Hallo {{ current_user.username }} 👋</h1>
+<div style="color:#64748b;font-size:14px;">Dein Dashboard – Überblick über heute und diesen Monat.</div>
+
+<div class="dash-grid">
+    <div class="card dash">
+         <div class="section-title">Finanzen (Monat)</div>
+         <div class="kpi-row">
+                <div class="kpi" title="Summe Einnahmen"><span style="font-size:11px;color:#64748b;">Einnahmen</span><span class="value">{{ '%.2f'|format(incomes|default(0)) }} €</span></div>
+                <div class="kpi" title="Summe Ausgaben"><span style="font-size:11px;color:#64748b;">Ausgaben</span><span class="value">{{ '%.2f'|format(expenses|default(0)) }} €</span></div>
+            {% set bal_color = 'bal-pos' if balance>=0 else 'bal-neg' %}
+            <div class="kpi" title="Saldo"><span style="font-size:11px;color:#64748b;">Saldo</span><span class="value {{ bal_color }}">{{ '%.2f'|format(balance|default(0)) }} €</span></div>
+         </div>
+         <ul class="list" style="margin-top:4px;">
+             {% for c in top_categories %}
+                 <li><span style="overflow:hidden;text-overflow:ellipsis;">{{ c.name }}</span><strong>{{ '%.2f'|format(c.amount) }} €</strong></li>
+             {% else %}
+                 <li class="empty">Keine Ausgaben erfasst.</li>
+             {% endfor %}
+         </ul>
+         <!-- Finance Details Link entfernt -->
+    </div>
+
+    <div class="card dash">
+         <div class="section-title">Nächste Ereignisse</div>
+         <ul class="list">
+             {% for e in upcoming_events %}
+                 <li>
+                     <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ e.title }}</span>
+                     <span style="font-size:11px;color:#64748b;">{{ e.start_time.strftime('%d.%m %H:%M') }}</span>
+                 </li>
+             {% else %}
+                 <li class="empty">Keine Termine in den nächsten 7 Tagen.</li>
+             {% endfor %}
+         </ul>
+         <a class="btn" style="align-self:flex-start;margin-top:auto;" href="{{ url_for('calendar.index') }}">Kalender →</a>
+    </div>
+
+    <div class="card dash">
+         <div class="section-title">Letzte Chat Nachrichten</div>
+         <div style="display:flex;flex-direction:column;gap:6px;max-height:180px;overflow:auto;">
+             {% for m in chat_rows %}
+                <div class="chat-bubble"><strong class="{{ 'me-user' if m.user_id==current_user.id else 'other-user' }}">{{ 'Ich' if m.user_id==current_user.id else ('User ' ~ m.user_id) }}</strong>: {{ m.content|e }}</div>
+             {% else %}
+                 <div class="empty">Noch keine Nachrichten.</div>
+             {% endfor %}
+         </div>
+         <a class="btn" style="align-self:flex-start;margin-top:auto;" href="{{ url_for('chat.index') }}">Zum Chat →</a>
+    </div>
+
+    <div class="card dash">
+         <div class="section-title">Deine neuesten Fotos</div>
+         <div class="photos-mini">
+                {% for p in photos %}
+                    <a href="{{ url_for('photos.index') }}" style="display:block;">
+                        <img src="{{ url_for('photos.raw', fname=p.filename) }}" alt="" loading="lazy" />
+                    </a>
+                {% else %}
+                    <div class="empty" style="grid-column:1/4;">Keine Fotos.</div>
+                {% endfor %}
+         </div>
+         <a class="btn" style="align-self:flex-start;margin-top:auto;" href="{{ url_for('photos.index') }}">Fotos →</a>
+    </div>
+
+    <div class="card dash" style="grid-column:1/-1;">
+         <div class="section-title">Schnellzugriff</div>
+         <div style="display:flex;flex-wrap:wrap;gap:10px;">
+                <!-- Neuer Finanz-Eintrag Button entfernt -->
+                <a class="btn" href="{{ url_for('calendar.index') }}">Neues Ereignis</a>
+                <a class="btn" href="{{ url_for('photos.index') }}">Foto hochladen</a>
+                <a class="btn" href="{{ url_for('chat.index') }}">Nachricht senden</a>
+                <a class="btn" href="{{ url_for('profile.index') }}">Profil bearbeiten</a>
+                {% if current_user.is_admin %}
+                <a class="btn" href="{{ url_for('admin.index') }}">Adminbereich</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+{% endblock %}

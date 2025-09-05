@@ -1,0 +1,406 @@
+{% extends "base.html" %}
+
+{% block title %}Kalender{% endblock %}
+
+{% block styles %}
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.5/main.min.css' rel='stylesheet' />
+
+{% endblock %}
+
+{% block content %}
+<div class="calendar-shell">
+    <button class="btn outline calendar-toggle" onclick="document.querySelector('.calendar-panel').classList.toggle('open')">☰ Panel</button>
+    <aside class="calendar-panel">
+        <section class="calendar-section">
+                <h3>Neuer Termin</h3>
+                <form id="newEventForm" class="event-form">
+                    <input class="input" type="text" id="eventTitle" placeholder="Titel *" required>
+                    <textarea class="input" id="eventDescription" placeholder="Beschreibung"></textarea>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap; margin:4px 0 2px;">
+                        <label style="font-size:12px;"> <input type="radio" name="timeMode" value="allDay" id="modeAllDay" checked> Ganztägig</label>
+                        <label style="font-size:12px;"> <input type="radio" name="timeMode" value="timed" id="modeTimed"> Mit Uhrzeit</label>
+                    </div>
+                    <div class="mini-hint" id="timeModeHint">Ganztägig: Nur Datum auswählen.</div>
+                    <div id="dateAllDayGroup">
+                        <input class="input" type="date" id="eventDate" />
+                    </div>
+                    <div id="dateTimedGroup" style="display:none;">
+                        <div style="display:flex; gap:6px;">
+                            <input class="input" type="datetime-local" id="eventStart" style="flex:1;" />
+                            <input class="input" type="datetime-local" id="eventEnd" style="flex:1;" />
+                        </div>
+                    </div>
+                    <div class="inline-flags" style="margin-top:10px;">
+                        <label><input type="checkbox" id="important"> Wichtig</label>
+                    </div>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <label style="font-size:12px;font-weight:600;">Farbe</label>
+                        <input class="input" type="color" id="eventColor" value="#3788d8" style="width:60px; padding:2px;" />
+                    </div>
+                    <div class="calendar-divider" style="margin:12px 0 10px;"></div>
+                    <button class="btn block" type="submit"><i class="fa fa-plus"></i> Termin speichern</button>
+                </form>
+            </section>
+            <section class="calendar-section">
+                <h3>Geburtstag</h3>
+                <form id="birthdayForm" class="event-form">
+                    <input class="input" type="text" id="birthdayTitle" placeholder="Name / Bezeichnung *" required>
+                    <div style="display:flex; gap:6px; align-items:center;">
+                        <input class="input" type="date" id="birthdayDate" required style="flex:1;">
+                    </div>
+                    <div class="mini-hint">Wird automatisch jährlich wiederholt. Jahr ist optional (für Alter Berechnung später).</div>
+                    <div style="display:flex; gap:8px; align-items:center; margin-top:4px;">
+                        <label style="font-size:12px;font-weight:600;">Farbe</label>
+                        <input class="input" type="color" id="birthdayColor" value="#ffb347" style="width:60px; padding:2px;" />
+                    </div>
+                    <textarea class="input" id="birthdayNotes" placeholder="Notiz (optional)"></textarea>
+                    <button class="btn block" type="submit"><i class="fa fa-birthday-cake"></i> Geburtstag speichern</button>
+                </form>
+        </section>
+        <section class="calendar-section">
+            <h3>Filter</h3>
+            <div class="filter-group">
+                <label><input type="checkbox" class="filter-check" data-filter="default" checked> Normale Events</label>
+                <label><input type="checkbox" class="filter-check" data-filter="birthday" checked> Geburtstage</label>
+                <label><input type="checkbox" class="filter-check" data-filter="important" checked> Wichtige</label>
+            </div>
+            <div class="calendar-divider"></div>
+            <div class="legend">
+                <div class="legend-item"><span class="legend-color" style="background:#3788d8"></span> Normal</div>
+                <div class="legend-item"><span class="legend-color" style="background:#ffb347"></span> Geburtstag</div>
+                <div class="legend-item"><span class="legend-color" style="background:#ff4d4f"></span> Wichtig</div>
+            </div>
+        </section>
+        <section class="calendar-section">
+            <h3>Horoskop</h3>
+            <form id="horoscopeForm" class="event-form">
+                <select id="zodiacSign" name="zodiacSign">
+                    <option value="aries">Widder</option>
+                    <option value="taurus">Stier</option>
+                    <option value="gemini">Zwillinge</option>
+                    <option value="cancer">Krebs</option>
+                    <option value="leo">Löwe</option>
+                    <option value="virgo">Jungfrau</option>
+                    <option value="libra">Waage</option>
+                    <option value="scorpio">Skorpion</option>
+                    <option value="sagittarius">Schütze</option>
+                    <option value="capricorn">Steinbock</option>
+                    <option value="aquarius">Wassermann</option>
+                    <option value="pisces">Fische</option>
+                </select>
+                <button type="submit" style="margin-top:6px;">Anzeigen</button>
+            </form>
+            <div id="horoscopeResult" class="scroll-box"></div>
+        </section>
+    </aside>
+    <div class="calendar-main">
+        <div id="calendar"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.5/main.min.js'></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Edit Modal (einfaches Overlay)
+        const modalHtml = `
+        <div id="eventEditModal" class="modal-backdrop">
+            <div class="modal">
+                <h3>Ereignis bearbeiten</h3>
+                <form id="editEventForm" class="form-grid" style="gap:10px;">
+                    <input type="hidden" id="editEventId" />
+                    <input class="input" type="text" id="editTitle" placeholder="Titel" required />
+                    <textarea class="input" id="editDescription" placeholder="Beschreibung"></textarea>
+                    <label style="font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;">Ganztägig <input type="checkbox" id="editAllDay" /></label>
+                    <div id="editDateAllDayWrap"><input class="input" type="date" id="editDate" /></div>
+                    <div id="editDateTimedWrap" style="display:none;">
+                        <input class="input" type="datetime-local" id="editStart" />
+                        <input class="input" type="datetime-local" id="editEnd" style="margin-top:6px;" />
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <label style="font-size:12px;font-weight:600;">Farbe</label>
+                        <input class="input" type="color" id="editColor" value="#3788d8" style="width:60px;padding:2px;" />
+                        <div id="editColorPalette" class="color-palette" style="flex:1 1 100%;"></div>
+                    </div>
+                    <label style="font-size:12px;display:flex;align-items:center;gap:6px;">Wichtig <input type="checkbox" id="editImportant" /></label>
+                    <div class="modal-actions">
+                        <button type="button" id="deleteEventBtn" class="btn danger">Löschen</button>
+                        <button type="button" id="closeEditModal" class="btn muted">Abbruch</button>
+                        <button type="submit" class="btn">Speichern</button>
+                    </div>
+                </form>
+            </div>
+        </div>`;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const editModal = document.getElementById('eventEditModal');
+    const closeEditModalBtn = document.getElementById('closeEditModal');
+    closeEditModalBtn.addEventListener('click', ()=> editModal.style.display='none');
+    function openModal(){ editModal.classList.add('open'); }
+    function closeModal(){ editModal.classList.remove('open'); }
+
+    const editAllDayToggle = document.getElementById('editAllDay');
+    const editDateAllDayWrap = document.getElementById('editDateAllDayWrap');
+    const editDateTimedWrap = document.getElementById('editDateTimedWrap');
+    editAllDayToggle.addEventListener('change', ()=>{
+        if(editAllDayToggle.checked){
+            editDateAllDayWrap.style.display='block';
+            editDateTimedWrap.style.display='none';
+        } else {
+            editDateAllDayWrap.style.display='none';
+            editDateTimedWrap.style.display='block';
+        }
+    });
+    const calendarEl = document.getElementById('calendar');
+    const activeFilters = { default:true, birthday:true, important:true };
+    // Edit Form submit
+    document.getElementById('editEventForm').addEventListener('submit', e => {
+        e.preventDefault();
+        const id = document.getElementById('editEventId').value;
+        const allDay = editAllDayToggle.checked;
+        let startVal, endVal;
+        if(allDay){
+            const d = document.getElementById('editDate').value;
+            startVal = d + 'T00:00:00';
+            endVal = d + 'T23:59:59';
+        } else {
+            startVal = document.getElementById('editStart').value;
+            endVal = document.getElementById('editEnd').value || startVal;
+        }
+        const payload = {
+            id: id,
+            title: document.getElementById('editTitle').value,
+            description: document.getElementById('editDescription').value,
+            start: startVal,
+            end: endVal,
+            allDay: allDay,
+            color: document.getElementById('editColor').value,
+            important: document.getElementById('editImportant').checked
+        };
+        // eventType ableiten (falls Geburtstag Stern/Icon im Original) -> aus Calendar Event extendedProps
+        const fcEv = calendar.getEventById(id) || null;
+        if(fcEv && fcEv.extendedProps && fcEv.extendedProps.eventType){
+            payload.eventType = fcEv.extendedProps.eventType;
+        }
+        fetch('/calendar/event', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) })
+        .then(r=>r.json())
+        .then(()=>{ calendar.refetchEvents(); closeModal(); });
+    });
+
+    // Delete button
+    document.getElementById('deleteEventBtn').addEventListener('click', ()=>{
+        const id = document.getElementById('editEventId').value;
+        if(confirm('Wirklich löschen?')){
+            fetch('/calendar/event/' + id, { method:'DELETE' })
+                .then(r=>{ if(r.ok){ calendar.refetchEvents(); closeModal(); }});
+        }
+    });
+    // Farbpalette definieren (Preset Farben)
+    const paletteColors = ['#2563eb','#1d4ed8','#7c3aed','#dc2626','#059669','#d97706','#ffb347','#ff4d4f','#9c27b0','#4b5563'];
+    function buildPalette(containerId, targetInputId){
+        const wrap = document.getElementById(containerId);
+        if(!wrap) return;
+        wrap.innerHTML = '';
+        const input = document.getElementById(targetInputId);
+        paletteColors.forEach(c => {
+            const chip = document.createElement('div');
+            chip.className='color-chip';
+            chip.style.background=c;
+            chip.title=c;
+            chip.addEventListener('click', ()=>{ input.value=c; updateActive(); });
+            wrap.appendChild(chip);
+        });
+        function updateActive(){
+            wrap.querySelectorAll('.color-chip').forEach(ch => { ch.classList.toggle('active', ch.style.background.toLowerCase()===input.value.toLowerCase()); });
+        }
+        input.addEventListener('input', updateActive);
+        updateActive();
+    }
+    buildPalette('editColorPalette','editColor');
+    buildPalette('birthdayColor','birthdayColor'); // noop for uniform mechanism
+    buildPalette('eventColor','eventColor');
+
+    // Quick Add (Klick auf freien Tag)
+    let quickPopover = null;
+    function closeQuick(){ quickPopover?.remove(); quickPopover=null; }
+    function openQuick(dateStr, jsEvent){
+        closeQuick();
+        quickPopover = document.createElement('div');
+        quickPopover.className='quick-add-popover';
+        quickPopover.innerHTML = `
+          <h4>Quick Add</h4>
+          <input class="input" type="text" id="quickTitle" placeholder="Titel" />
+          <div class="actions">
+            <button type="button" class="btn outline" id="quickCancel">X</button>
+            <button type="button" class="btn" id="quickSave">OK</button>
+          </div>`;
+        document.body.appendChild(quickPopover);
+        const rect = jsEvent.target.getBoundingClientRect();
+        quickPopover.style.top = (window.scrollY + rect.top + 6) + 'px';
+        quickPopover.style.left = (window.scrollX + rect.left + 6) + 'px';
+        quickPopover.querySelector('#quickCancel').onclick=closeQuick;
+        quickPopover.querySelector('#quickSave').onclick=()=>{
+            const t = document.getElementById('quickTitle').value.trim();
+            if(!t){ closeQuick(); return; }
+            const start = dateStr + 'T00:00:00';
+            const end = dateStr + 'T23:59:59';
+            fetch('/calendar/event', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({title:t,start,end,description:'',allDay:true,color:'#2563eb',eventType:'default',important:false,recurring:false,recurrence:null}) })
+                .then(r=>r.json()).then(()=>{ calendar.refetchEvents(); closeQuick(); });
+        };
+        setTimeout(()=>{ document.getElementById('quickTitle')?.focus(); },30);
+    }
+
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        firstDay: 1,
+        locale: 'de',
+        selectable: true,
+        editable: true,
+        weekNumbers: true,
+        eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+        dayMaxEvents: true,
+        selectMirror: true,
+        headerToolbar: { left:'prev,next today', center:'title', right:'dayGridMonth,timeGridWeek,timeGridDay,listWeek' },
+        dateClick: info => { openQuick(info.dateStr, info.jsEvent); },
+        unselectAuto: true,
+        events: (fetchInfo, success, failure) => {
+            fetch(`/calendar/events?start=${fetchInfo.startStr}&end=${fetchInfo.endStr}`)
+                .then(r=>r.json())
+                .then(data => {
+                    success(data.filter(ev => activeFilters[ev.eventType] !== false && !(ev.eventType==='default' && ev.important && activeFilters['important']===false)));
+                }).catch(failure);
+        },
+        eventDragStart: ()=>{ document.body.classList.add('dragging-event'); },
+        eventDragStop: ()=>{ document.body.classList.remove('dragging-event'); },
+        select: info => {
+            document.getElementById('eventDate').value = info.startStr.substring(0,10);
+            document.getElementById('eventStart').value = '';
+            document.getElementById('eventEnd').value = '';
+        },
+        eventClick: info => {
+            closeQuick();
+            const ev = info.event;
+            const originalId = ev.extendedProps.originalId || ev.id;
+            document.getElementById('editEventId').value = originalId;
+            document.getElementById('editTitle').value = ev.title.replace(/^([🎂⭐]\s)/,'');
+            document.getElementById('editDescription').value = ev.extendedProps.description || '';
+            document.getElementById('editColor').value = ev.backgroundColor || '#3788d8';
+            document.getElementById('editImportant').checked = !!ev.extendedProps.important;
+            const isAllDay = ev.allDay;
+            editAllDayToggle.checked = isAllDay;
+            if(isAllDay){
+                editDateAllDayWrap.style.display='block';
+                editDateTimedWrap.style.display='none';
+                let d;
+                try { d = ev.start.toISOString().substring(0,10);} catch { d = ev.startStr.substring(0,10);}        
+                document.getElementById('editDate').value = d;
+            } else {
+                editDateAllDayWrap.style.display='none';
+                editDateTimedWrap.style.display='block';
+                document.getElementById('editStart').value = ev.start.toISOString().slice(0,16);
+                if(ev.end){ document.getElementById('editEnd').value = ev.end.toISOString().slice(0,16); }
+            }
+            openModal();
+        }
+    });
+    calendar.render();
+
+    document.getElementById('newEventForm').addEventListener('submit', e => {
+        e.preventDefault();
+            const modeAllDay = document.getElementById('modeAllDay').checked;
+            let startVal, endVal, allDay;
+            if(modeAllDay){
+                allDay = true;
+                const d = document.getElementById('eventDate').value;
+                if(!d){ alert('Bitte Datum wählen.'); return; }
+                startVal = d + 'T00:00:00';
+                endVal = d + 'T23:59:59';
+            } else {
+                allDay = false;
+                startVal = document.getElementById('eventStart').value;
+                if(!startVal){ alert('Bitte Startzeit wählen.'); return; }
+                endVal = document.getElementById('eventEnd').value || startVal;
+            }
+        const payload = {
+            title: document.getElementById('eventTitle').value,
+            start: startVal,
+            end: endVal,
+            description: document.getElementById('eventDescription').value,
+            allDay: allDay,
+            color: document.getElementById('eventColor').value,
+            eventType: 'default',
+            important: document.getElementById('important').checked,
+            recurring: false,
+            recurrence: null
+        };
+        fetch('/calendar/event', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)})
+            .then(r=>r.json())
+            .then(()=>{ calendar.refetchEvents(); e.target.reset(); });
+    });
+
+    document.querySelectorAll('.filter-check').forEach(cb => {
+        cb.addEventListener('change', () => {
+            activeFilters[cb.getAttribute('data-filter')] = cb.checked;
+            calendar.refetchEvents();
+        });
+    });
+
+    document.getElementById('horoscopeForm').addEventListener('submit', e => {
+        e.preventDefault();
+        const sign = document.getElementById('zodiacSign').value;
+        fetch('/calendar/horoscope/' + sign)
+            .then(r=>r.json())
+            .then(data => {
+                document.getElementById('horoscopeResult').innerHTML = `<p><strong>Ihr Horoskop:</strong></p><p>${data.horoscope}</p>`;
+            });
+    });
+
+        // Birthday form
+        document.getElementById('birthdayForm').addEventListener('submit', e => {
+            e.preventDefault();
+            const title = document.getElementById('birthdayTitle').value.trim();
+            const date = document.getElementById('birthdayDate').value;
+            if(!title || !date){ alert('Name und Datum erforderlich.'); return; }
+            const color = document.getElementById('birthdayColor').value || '#ffb347';
+            const notes = document.getElementById('birthdayNotes').value;
+            const start = date + 'T00:00:00';
+            const end = date + 'T23:59:59';
+            const payload = {
+                title: title,
+                start: start,
+                end: end,
+                description: notes,
+                allDay: true,
+                color: color,
+                eventType: 'birthday',
+                important: false,
+                recurring: true,
+                recurrence: 'annual'
+            };
+            fetch('/calendar/event', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) })
+                .then(r=>r.json())
+                .then(()=>{ calendar.refetchEvents(); e.target.reset(); });
+        });
+
+        // Toggle timed vs all-day
+        const modeAll = document.getElementById('modeAllDay');
+        const modeTimed = document.getElementById('modeTimed');
+        const dateAllDayGroup = document.getElementById('dateAllDayGroup');
+        const dateTimedGroup = document.getElementById('dateTimedGroup');
+        function updateMode(){
+            if(modeAll.checked){
+                dateAllDayGroup.style.display='block';
+                dateTimedGroup.style.display='none';
+                document.getElementById('timeModeHint').textContent='Ganztägig: Nur Datum.';
+            } else {
+                dateAllDayGroup.style.display='none';
+                dateTimedGroup.style.display='block';
+                document.getElementById('timeModeHint').textContent='Zeitgesteuert: Start (& optional Ende) wählen.';
+            }
+        }
+        modeAll.addEventListener('change', updateMode);
+        modeTimed.addEventListener('change', updateMode);
+        updateMode();
+});
+</script>
+{% endblock %}

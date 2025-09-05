@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>{{ subject or 'Familien Portal' }}</title>
+<style>
+  body { font-family: Arial, sans-serif; background:#f4f6f8; margin:0; padding:0; }
+  .wrapper { max-width:600px; margin:0 auto; padding:24px 12px; }
+  .card { background:#ffffff; border-radius:8px; padding:28px 32px 32px; border:1px solid #e5e8eb; }
+  h1 { font-size:20px; margin:0 0 16px; color:#1a1d21; }
+  p { line-height:1.5; font-size:14px; color:#2d3339; margin:0 0 14px; }
+  .btn { display:inline-block; background:#1a73e8; color:#fff !important; text-decoration:none; padding:10px 18px; border-radius:6px; font-weight:600; font-size:14px; }
+  .meta { font-size:12px; color:#6b747d; margin-top:24px; border-top:1px solid #eceff1; padding-top:12px; }
+  code { background:#f1f3f5; padding:2px 5px; border-radius:4px; font-family:Menlo,monospace; font-size:12px; }
+  .pw-box { font-size:16px; font-weight:600; letter-spacing:1px; background:#f1f7ff; border:1px dashed #1a73e8; padding:10px 14px; display:inline-block; border-radius:6px; }
+  .small { font-size:12px; color:#555; }
+</style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="card">
+      {% block body %}{% endblock %}
+      <div class="meta">Diese E-Mail wurde automatisch vom Familien Portal gesendet. Bitte nicht direkt antworten.</div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,761 @@
+{% extends "base.html" %}
+
+{% block title %}Finanzen{% endblock %}
+
+{% block content %}
+<div class="layout-header">
+    <h1>Finanzen</h1>
+    <div class="actions-row">
+        <button class="btn" onclick="openQuickAdd('income')">+ Einnahme</button>
+        <button class="btn outline" onclick="openQuickAdd('expense')">+ Ausgabe</button>
+        <button class="btn outline export-btn" id="exportBtn" onclick="exportCsv()">Export CSV</button>
+    </div>
+</div>
+
+<div class="card" style="background:var(--color-warning-bg,#fef3c7);border:1px solid var(--color-border,#eab308);margin-bottom:14px;">
+    <strong>Hinweis:</strong> Dies ist die alte Finanz-Oberfläche. Die neue Version findest du hier: <a href="{{ url_for('finance.dashboard') }}">Neue Finanzen öffnen</a>.
+</div>
+
+<div class="tabs">
+    <button class="tab-btn active" data-tab="dashboard">Übersicht</button>
+    <button class="tab-btn" data-tab="transactions">Buchungen</button>
+    <button class="tab-btn" data-tab="categories">Budgets</button>
+    <button class="tab-btn" data-tab="recurring">Wiederkehrend</button>
+    <button class="tab-btn" data-tab="analytics">Analyse</button>
+</div>
+
+<!-- Dashboard Panel -->
+<div class="panel active" id="panel-dashboard">
+    <!-- Neue Funktionsübersicht -->
+    <div class="grid cols-4 mb-4" id="familyQuickStats"></div>
+    <div class="grid cols-3">
+        <div class="card">
+            <h3>Einnahmen (Monat)</h3>
+            <div class="metric" id="dashInc">{{ '%.2f'|format(month_incomes) }} {{ currency }}</div>
+            <small class="mini-hint">Gemeinsame Einnahmen</small>
+        </div>
+        <div class="card">
+            <h3>Ausgaben (Monat)</h3>
+            <div class="metric" id="dashExp">{{ '%.2f'|format(month_expenses) }} €</div>
+            <small class="mini-hint">Gemeinsame Ausgaben</small>
+        </div>
+        <div class="card">
+            <h3>Saldo (Monat)</h3>
+            <div class="metric" id="dashBal">{{ '%.2f'|format(month_balance) }} €</div>
+            <small class="mini-hint">Einnahmen - Ausgaben</small>
+        </div>
+    </div>
+        <div class="card mt-4">
+                <div class="flex between center" style="flex-wrap:wrap; gap:10px;">
+                        <div class="flex gap small">
+                            <button class="btn xs" onclick="applyQuickRange('month')">Dieser Monat</button>
+                            <button class="btn xs outline" onclick="applyQuickRange('30d')">Letzte 30 Tage</button>
+                            <button class="btn xs outline" onclick="applyQuickRange('week')">Diese Woche</button>
+                        </div>
+                        <div>
+                                <button class="btn xs outline" onclick="exportCurrentView()">Export Zeitraum</button>
+                        </div>
+                </div>
+        </div>
+        <div class="grid cols-2 mt-4" id="accountsArea">
+            <div class="card">
+                <h3>Konten</h3>
+                <div id="accountsList" class="stack small" style="max-height:200px;overflow:auto;"></div>
+                <form id="newAccountForm" class="flex gap mt-2" onsubmit="createAccount(event)">
+                    <input class="input" name="name" placeholder="Neues Konto" required />
+                    <button class="btn" style="white-space:nowrap;">+ Konto</button>
+                </form>
+            </div>
+            <div class="card">
+                <h3>Transfer</h3>
+                <form id="transferForm" class="form-grid" style="gap:8px;">
+                    <select class="input" id="tfFrom" required></select>
+                    <select class="input" id="tfTo" required></select>
+                    <input class="input" id="tfAmount" type="number" step="0.01" placeholder="Betrag" required />
+                    <input class="input" id="tfDesc" placeholder="Beschreibung (optional)" />
+                    <div class="flex gap mt-1">
+                        <button type="submit" class="btn" style="flex:1;">Überweisen</button>
+                        <button type="button" class="btn muted" style="flex:1;" onclick="resetTransfer()">Reset</button>
+                    </div>
+                </form>
+                <small class="mini-hint" id="transferHint"></small>
+            </div>
+        </div>
+    <div class="split-grid mt-4">
+        <div class="card">
+            <h3>Kategorien (Monat)</h3>
+            <div id="categoryProgress"></div>
+        </div>
+        <div class="card">
+            <h3>Jahresverlauf</h3>
+            <canvas id="yearChart" height="160"></canvas>
+        </div>
+    </div>
+    <div class="grid cols-3 mt-4">
+        <div class="card">
+            <h3>Cashflow (Proj.)</h3>
+            <div class="metric" id="projMonthly">–</div>
+            <small class="mini-hint" id="projHint">Basierend auf aktiven Wiederkehrenden</small>
+            <canvas id="projMiniChart" height="60" style="margin-top:8px;"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Einnahmen Panel entfernt (in Gesamtübersicht konsolidiert) -->
+
+<!-- Transactions Panel -->
+<div class="panel" id="panel-transactions">
+    <div class="card">
+        <div class="section-heading">
+            <h3 style="margin:0;">Buchungen</h3>
+            <div class="filter-bar">
+                <input class="input inline" id="searchQuery" placeholder="Suche..." />
+                <select id="filterKind" class="input inline">
+                    <option value="">Typ</option><option value="income">Einnahmen</option><option value="expense">Ausgaben</option>
+                </select>
+                <input type="number" id="filterYear" class="input inline" placeholder="Jahr" />
+                <input type="number" id="filterMonth" class="input inline" placeholder="Monat" />
+                <input type="date" id="filterStart" class="input inline" />
+                <input type="date" id="filterEnd" class="input inline" />
+                <button class="btn outline" onclick="reloadTable(1)">Filtern</button>
+            </div>
+        </div>
+        <div class="table-wrap mt-3">
+            <table class="table" id="financeTable">
+              <thead>
+                <tr>
+                  <th>Datum</th><th>Typ</th><th>Kategorie</th>
+                  <th>Zahlungsart</th>
+                  <th style="text-align:right;">Betrag</th>
+                  <th>Beschreibung</th>
+                  <th>Notizen</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+              <tfoot><tr><td colspan="3">Summe Seite</td><td style="text-align:right;" id="pageTotal"></td><td colspan="2"></td></tr></tfoot>
+            </table>
+        </div>
+        <div class="pagination" id="pagination"></div>
+    </div>
+</div>
+
+<!-- Categories Panel -->
+<div class="panel" id="panel-categories">
+    <div class="card">
+        <div class="section-heading">
+            <h3 style="margin:0;">Kategorien & Budgets</h3>
+            <button class="btn outline" onclick="openCategoryModal()">+ Kategorie</button>
+        </div>
+        <div id="categoryFilters" style="margin:6px 0; display:flex; gap:6px;">
+          <button class="btn xs" onclick="filterCats('all')">Alle</button>
+          <button class="btn xs outline" onclick="filterCats('income')">Einnahme</button>
+          <button class="btn xs outline" onclick="filterCats('expense')">Ausgabe</button>
+        </div>
+        <div id="categoryList" class="mt-3"></div>
+    </div>
+</div>
+
+<!-- Recurring Panel -->
+<div class="panel" id="panel-recurring">
+    <div class="card">
+        <div class="section-heading">
+            <h3 style="margin:0;">Wiederkehrende Buchungen</h3>
+            <button class="btn outline" onclick="openRecurringModal()">+ Neu</button>
+        </div>
+        <div class="table-wrap mt-3">
+            <table class="table" id="recurringTable">
+                <thead><tr><th>Beschreibung</th><th>Start</th><th>Freq</th><th>Betrag</th><th>Typ</th><th>Letzte</th><th>Status</th><th></th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Analytics Panel -->
+<div class="panel" id="panel-analytics">
+    <div class="grid cols-3">
+        <div class="card"><h3>Income vs Expense</h3><canvas id="chartTrend" height="140"></canvas></div>
+        <div class="card"><h3>Kategorie Anteil</h3><canvas id="chartDonut" height="140"></canvas></div>
+        <div class="card"><h3>Moving Average</h3><canvas id="chartMA" height="140"></canvas></div>
+    </div>
+</div>
+
+<!-- Modals -->
+<div id="financeModal" class="modal-backdrop">
+  <div class="modal" style="max-width:480px;">
+    <h3 id="finModalTitle">Eintrag</h3>
+    <form id="financeForm" class="form-grid" style="gap:10px;">
+        <input type="hidden" id="itemId" />
+        <div class="flex gap">
+            <select id="kind" class="input" style="flex:1;">
+                <option value="income">Einnahme</option>
+                <option value="expense">Ausgabe</option>
+            </select>
+            <input type="date" id="date" class="input" style="flex:1;" required />
+        </div>
+        <div class="flex gap">
+            <select id="categorySelect" class="input" style="flex:1;"></select>
+            <input type="text" id="category" class="input" placeholder="Kategorie (frei)" style="flex:1;" />
+        </div>
+        <input type="number" step="0.01" id="amount" class="input" placeholder="Betrag" required />
+        <textarea id="description" class="input" placeholder="Beschreibung"></textarea>
+        <div class="flex gap">
+            <input type="text" id="paymentMethod" class="input" placeholder="Zahlungsart (z.B. Karte)" style="flex:1;">
+            <input type="text" id="notes" class="input" placeholder="Notizen" style="flex:1;">
+        </div>
+        <!-- Neu: Inline Wiederkehrend -->
+        <div id="recurringInline" class="flex gap" style="align-items:center;">
+            <label style="display:flex;gap:6px;align-items:center; font-size:14px;">
+                <input type="checkbox" id="inlineRecurringToggle" />
+                Wiederkehrend
+            </label>
+            <select id="inlineRecurringFreq" class="input" style="flex:1;" disabled>
+                <option value="monthly">Monatlich</option>
+                <option value="weekly">Wöchentlich</option>
+                <option value="yearly">Jährlich</option>
+            </select>
+        </div>
+        <div class="modal-actions">
+            <button type="button" class="btn muted" onclick="closeFinModal()">Abbruch</button>
+            <button type="submit" class="btn">Speichern</button>
+        </div>
+    </form>
+  </div>
+</div>
+
+<div id="categoryModal" class="modal-backdrop">
+    <div class="modal" style="max-width:420px;">
+        <h3>Kategorie</h3>
+        <form id="categoryForm" class="form-grid" style="gap:10px;">
+            <input type="hidden" id="catId" />
+            <input type="text" id="catName" class="input" placeholder="Name" required />
+            <div class="flex gap">
+                <input type="color" id="catColor" class="input" style="flex:1; padding:4px;" value="#2563eb" />
+                <input type="number" step="0.01" id="catBudget" class="input" style="flex:2;" placeholder="Budget (Monat)" />
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn muted" onclick="closeCategoryModal()">Abbruch</button>
+                <button type="submit" class="btn">Speichern</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="recurringModal" class="modal-backdrop">
+    <div class="modal" style="max-width:480px;">
+        <h3>Wiederkehrend</h3>
+        <form id="recurringForm" class="form-grid" style="gap:10px;">
+            <input type="hidden" id="recId" />
+            <input type="text" id="recDesc" class="input" placeholder="Beschreibung" required />
+            <div class="flex gap">
+                <input type="date" id="recStart" class="input" style="flex:1;" required />
+                <select id="recFreq" class="input" style="flex:1;">
+                    <option value="monthly">Monatlich</option>
+                    <option value="weekly">Wöchentlich</option>
+                    <option value="yearly">Jährlich</option>
+                </select>
+            </div>
+            <div class="flex gap">
+                <select id="recKind" class="input" style="flex:1;">
+                    <option value="expense">Ausgabe</option>
+                    <option value="income">Einnahme</option>
+                </select>
+                <input type="number" step="0.01" id="recAmount" class="input" style="flex:1;" placeholder="Betrag" required />
+            </div>
+            <div class="flex gap">
+                <select id="recCatSelect" class="input" style="flex:1;"></select>
+                <input type="text" id="recCat" class="input" style="flex:1;" placeholder="Kategorie" />
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn muted" onclick="closeRecurringModal()">Abbruch</button>
+                <button type="submit" class="btn">Speichern</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<button class="fab" title="Neuer Eintrag" onclick="openQuickAdd('expense')">+</button>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+// Währung verfügbar machen
+const CURRENCY = "{{ currency|default('€') }}";
+
+// --- Tab Handling (robust) ---
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+        document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        const tab = btn.dataset.tab;
+        document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+        const panel = document.getElementById('panel-'+tab);
+        if(panel) panel.classList.add('active'); // Schutz falls Panel fehlt
+    });
+});
+
+// NEU: Referenzen für Inline-Wiederkehrend (vor Nutzung in openFinanceModal)
+const toggleRecurring = document.getElementById('inlineRecurringToggle');
+const freqSelect = document.getElementById('inlineRecurringFreq');
+if(toggleRecurring && freqSelect){
+    freqSelect.disabled = true;
+    toggleRecurring.addEventListener('change', ()=>{
+        freqSelect.disabled = !toggleRecurring.checked;
+    });
+}
+
+// Global State
+let yearChart=null, trendChart=null, donutChart=null, maChart=null;
+let categoriesCache=[];
+let userMap = {};
+
+// Stub (Panel 'incomes' fehlt aktuell, daher nur Platzhalter)
+function loadIncomeTable(){ /* Panel incomes nicht implementiert */ }
+
+// Utility fetch wrapper (robust gegen leere/fehlgeschlagene Antworten)
+function api(url, opts={}){
+    return fetch(url, opts).then(async r => {
+        const ct = r.headers.get('Content-Type')||'';
+        let text = '';
+        try { text = await r.text(); } catch(_) {}
+        if(!r.ok){
+            // Versuche JSON Fehlermeldung zu extrahieren
+            try { const errJson = JSON.parse(text); throw new Error(errJson.message || ('HTTP '+r.status)); } catch(_){ throw new Error(`HTTP ${r.status}: ${text.slice(0,160)}`); }
+        }
+        if(!text) return {};
+        if(ct.includes('application/json')){
+            try { return JSON.parse(text); } catch(e){ throw new Error('Ungültiges JSON vom Server'); }
+        }
+        // CSV oder anderes Format zurückgeben als Rohtext
+        return text;
+    });
+}
+
+// Quick Add Floating
+function openQuickAdd(kind){ openFinanceModal(kind); }
+
+// Finance Modal
+const financeModal = document.getElementById('financeModal');
+function openFinanceModal(kind, data){
+    document.getElementById('itemId').value=data?.id||'';
+    document.getElementById('finModalTitle').textContent = data?'Bearbeiten':(kind==='income'?'Neue Einnahme':'Neue Ausgabe');
+    document.getElementById('kind').value=data?.kind||kind||'expense';
+    document.getElementById('date').value=data?.date|| new Date().toISOString().substring(0,10);
+    document.getElementById('amount').value=data?.rawAmount||'';
+    document.getElementById('description').value=data?.description||'';
+    document.getElementById('paymentMethod').value = data?.paymentMethod||'';
+    document.getElementById('notes').value = data?.notes||'';
+    populateCategorySelect('categorySelect', data?.categoryId);
+    document.getElementById('category').value=data?.category||'';
+    toggleRecurring.checked = false;
+    freqSelect.disabled = true;
+    // Falls Bearbeitung existierender income + identischer Recurring existiert -> könnte später Auto-Erkennung erfolgen
+    financeModal.classList.add('open');
+}
+function closeFinModal(){ financeModal.classList.remove('open'); }
+
+document.getElementById('financeForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const id = document.getElementById('itemId').value;
+    const body = {
+        kind: document.getElementById('kind').value,
+        date: document.getElementById('date').value,
+        category: document.getElementById('category').value,
+        categoryId: parseInt(document.getElementById('categorySelect').value)||null,
+        amount: document.getElementById('amount').value,
+        description: document.getElementById('description').value,
+        paymentMethod: document.getElementById('paymentMethod').value,
+        notes: document.getElementById('notes').value,
+        makeRecurring: toggleRecurring.checked,
+        recFrequency: toggleRecurring.checked ? freqSelect.value : null
+    };
+    api(id?`/finance/api/item/${id}`:'/finance/api/item', { method: id?'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) })
+        .then(()=>{ closeFinModal(); reloadTable(); loadIncomeTable(); loadBudgets(); updateCharts(); loadRecurring(); })
+        .catch(err => { alert('Fehler beim Speichern: '+err.message); console.error(err); });
+});
+
+function deleteItem(id){ if(!confirm('Löschen?')) return; api(`/finance/api/item/${id}`, {method:'DELETE'}).then(()=>{ reloadTable(); updateCharts(); }).catch(err=>alert('Fehler beim Löschen: '+err.message)); }
+
+// Pagination & Table
+function reloadTable(page=1){
+    const params = new URLSearchParams();
+    const q = document.getElementById('searchQuery').value.trim();
+    const kind = document.getElementById('filterKind').value;
+    const year = document.getElementById('filterYear').value;
+    const month = document.getElementById('filterMonth').value;
+    const start = document.getElementById('filterStart').value;
+    const end = document.getElementById('filterEnd').value;
+    if(q) params.append('q', q);
+    if(kind) params.append('kind',kind);
+    if(year) params.append('year',year);
+    if(month) params.append('month',month);
+    if(start) params.append('start',start);
+    if(end) params.append('end',end);
+    params.append('page', page);
+    params.append('page_size', 50);
+    api('/finance/api/items?'+params.toString()).then(res=>{
+        const tbody=document.querySelector('#financeTable tbody');
+        tbody.innerHTML='';
+        let subtotal=0;
+        res.items.forEach(item=>{
+            subtotal += (item.kind==='income'? item.rawAmount : -item.rawAmount);
+            const tr=document.createElement('tr');
+            tr.innerHTML =
+              `<td>${item.date}</td>`+
+              `<td>${item.kind==='income'?'<span class="pill inc">EIN</span>':'<span class="pill exp">AUS</span>'}</td>`+
+              `<td>${item.category||''}</td>`+
+              `<td>${item.paymentMethod||''}</td>`+
+              `<td style='text-align:right;${item.kind==='expense'?'color:#dc2626;':''}'>${(item.kind==='expense'?'-':'')}${item.rawAmount.toFixed(2)} ${CURRENCY}</td>`+
+              `<td>${item.description||''}</td>`+
+              `<td>${item.notes?item.notes.substring(0,40):''}</td>`+
+              `<td style='text-align:right;'>`+
+                `<button class='btn xs' onclick='openFinanceModal(null, this.parentElement.parentElement._data)'>✎</button> `+
+                `<button class='btn xs danger' onclick='deleteItem(${item.id})'>✕</button></td>`;
+            tr._data=item;
+            tbody.appendChild(tr);
+        });
+        document.getElementById('pageTotal').textContent = subtotal.toFixed(2)+ ' €';
+        buildPagination(res.meta.page, res.meta.pages);
+    });
+}
+
+function buildPagination(page, pages){
+    const wrap = document.getElementById('pagination');
+    wrap.innerHTML='';
+    for(let p=1;p<=pages;p++){
+        const btn=document.createElement('button');
+        btn.textContent=p;
+        btn.className = (p===page)?'active':'';
+        btn.onclick=()=> reloadTable(p);
+        wrap.appendChild(btn);
+    }
+}
+
+// Categories & Budgets
+function loadBudgets(){
+    api('/finance/api/budgets').then(res => {
+        categoriesCache = res.categories;
+        // Dashboard progress
+        const prog = document.getElementById('categoryProgress');
+        prog.innerHTML='';
+        res.categories.forEach(c => {
+            const div = document.createElement('div');
+            div.className='category-row';
+            const pct = c.percent!=null? Math.min(200, c.percent).toFixed(1):null;
+            const over = c.percent && c.percent>100;
+            const warnLevel = over? 'danger' : (c.percent>90? 'warning' : (c.percent>75? 'mid' : 'ok'));
+            div.innerHTML = `<div class='category-dot' style='background:${c.color||'#ccc'}'></div>`+
+                `<div style='flex:1;'>${c.name}${c.budget?` <span class='mini-hint'>${c.spent.toFixed(2)} / ${c.budget.toFixed(2)}</span>`:''}`+
+                `${c.budget?`<div class='progress ${over?'over':''}'><div class='progress-bar ${over?'over':''}' style='width:${Math.min(100,c.percent).toFixed(1)}%;'></div></div>`:''}`+
+                `</div>`+
+                `${pct?`<span class='badge ${warnLevel}' style='align-self:flex-start;'>${pct}%</span>`:''}`;
+            prog.appendChild(div);
+        });
+        renderBudgetLegend();
+        populateCategorySelect('categorySelect');
+        populateCategorySelect('recCatSelect');
+        renderCategoryList();
+    });
+}
+
+function populateCategorySelect(id, selected){
+    const sel = document.getElementById(id);
+    if(!sel) return;
+    sel.innerHTML='<option value="">(frei)</option>';
+    categoriesCache.forEach(c => {
+        const opt=document.createElement('option');
+        opt.value=c.id; opt.textContent=c.name; if(selected && selected===c.id) opt.selected=true; sel.appendChild(opt);
+    });
+}
+
+function filterCats(mode){
+  const list = document.getElementById('categoryList');
+  Array.from(list.children).forEach(row=>{
+     const id = parseInt(row.dataset.id);
+     const cat = categoriesCache.find(c=>c.id===id);
+     const t = cat?.category_type || 'expense';
+     row.style.display = (mode==='all'|| mode===t)?'flex':'none';
+  });
+}
+function renderCategoryList(){
+    const list = document.getElementById('categoryList');
+    list.innerHTML='';
+    categoriesCache.forEach(c=>{
+       const row=document.createElement('div');
+       row.className='category-row';
+       row.dataset.id=c.id;
+       const over=c.percent && c.percent>100;
+       row.innerHTML = `<div class='category-dot' style='background:${c.color||'#ccc'}'></div>`+
+            `<div style='flex:1;'>`+
+            `<strong>${c.name}</strong>`+
+            `${c.budget?`<div class='progress mt-2 ${over?'over':''}'><div class='progress-bar ${over?'over':''}' style='width:${Math.min(100,c.percent).toFixed(1)}%'></div></div>`:''}`+
+            `${c.budget?`<small style='font-size:11px;color:var(--color-text-faint);'>${c.spent.toFixed(2)} / ${c.budget.toFixed(2)} EUR</small>`:''}`+
+            `</div>`+
+            `<div class='category-actions'>`+
+                `<button class='subtle-link' onclick='editCategory(${c.id})'>Bearb.</button>`+
+                `<button class='subtle-link' onclick='deleteCategory(${c.id})'>X</button>`+
+            `</div>`;
+        list.appendChild(row);
+    });
+}
+
+// Category Modal
+const categoryModal=document.getElementById('categoryModal');
+function openCategoryModal(cat){
+    document.getElementById('catId').value=cat?.id||'';
+    document.getElementById('catName').value=cat?.name||'';
+    document.getElementById('catColor').value=cat?.color||'#2563eb';
+    document.getElementById('catBudget').value=cat?.budget||'';
+    categoryModal.classList.add('open');
+}
+function closeCategoryModal(){ categoryModal.classList.remove('open'); }
+document.getElementById('categoryForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const id=document.getElementById('catId').value;
+    const body={ name: document.getElementById('catName').value, color: document.getElementById('catColor').value, budget: document.getElementById('catBudget').value };
+    api(id?`/finance/api/category/${id}`:'/finance/api/category', { method:id?'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)})
+        .then(()=>{ closeCategoryModal(); loadBudgets(); })
+        .catch(err=>alert('Fehler Kategorie: '+err.message));
+});
+function editCategory(id){ const c=categoriesCache.find(x=>x.id===id); openCategoryModal(c); }
+function deleteCategory(id){ if(!confirm('Kategorie löschen?')) return; api(`/finance/api/category/${id}`,{method:'DELETE'}).then(()=> loadBudgets()).catch(err=>alert('Fehler: '+err.message)); }
+
+// Recurring
+const recurringModal=document.getElementById('recurringModal');
+function openRecurringModal(r){
+    document.getElementById('recId').value=r?.id||'';
+    document.getElementById('recDesc').value=r?.description||'';
+    document.getElementById('recStart').value=r?.startDate|| new Date().toISOString().substring(0,10);
+    document.getElementById('recFreq').value=r?.frequency||'monthly';
+    document.getElementById('recKind').value=r?.kind||'expense';
+    document.getElementById('recAmount').value=r?.amount||'';
+    populateCategorySelect('recCatSelect', r?.categoryId);
+    document.getElementById('recCat').value=r?.category||'';
+    recurringModal.classList.add('open');
+}
+function closeRecurringModal(){ recurringModal.classList.remove('open'); }
+document.getElementById('recurringForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const id=document.getElementById('recId').value;
+    const body={
+        description: document.getElementById('recDesc').value,
+        startDate: document.getElementById('recStart').value,
+        frequency: document.getElementById('recFreq').value,
+        kind: document.getElementById('recKind').value,
+        amount: document.getElementById('recAmount').value,
+        categoryId: parseInt(document.getElementById('recCatSelect').value)||null,
+        category: document.getElementById('recCat').value
+    };
+    api(id?`/finance/api/recurring/${id}`:'/finance/api/recurring', { method: id?'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)})
+        .then(()=>{ closeRecurringModal(); loadRecurring(); })
+        .catch(err=>alert('Fehler Wiederkehrend: '+err.message));
+});
+function loadRecurring(){ api('/finance/api/recurring').then(data => {
+    const tbody=document.querySelector('#recurringTable tbody');
+    tbody.innerHTML='';
+    data.forEach(r => {
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td>${r.description}</td><td>${r.startDate}</td><td>${r.frequency}</td><td style='text-align:right;'>${r.amount.toFixed(2)} €</td><td>${r.kind==='income'?'EIN':'AUS'}</td><td>${r.lastGenerated||'-'}</td><td><span class='status-chip ${r.active?'on':'off'}'>${r.active?'Aktiv':'Inaktiv'}</span></td><td style='text-align:right;'><button class='btn xs' onclick='openRecurringModal(${JSON.stringify(r)})'>✎</button> <button class='btn xs danger' onclick='deleteRecurring(${r.id})'>✕</button></td>`;
+        tbody.appendChild(tr);
+    });
+}); }
+function deleteRecurring(id){ if(!confirm('Löschen?')) return; api(`/finance/api/recurring/${id}`,{method:'DELETE'}).then(()=> loadRecurring()).catch(err=>alert('Fehler: '+err.message)); }
+
+// Export
+function exportCsv(){
+    const btn=document.getElementById('exportBtn');
+    btn.classList.add('loading');
+    const kind=document.getElementById('filterKind').value;
+    const year=document.getElementById('filterYear').value;
+    const month=document.getElementById('filterMonth').value;
+    const params=new URLSearchParams();
+    if(kind) params.append('kind',kind); if(year) params.append('year',year); if(month) params.append('month',month);
+    fetch('/finance/api/export.csv?'+params.toString())
+        .then(r=>r.blob())
+        .then(blob => { btn.classList.remove('loading'); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='finanzen_export.csv'; a.click(); URL.revokeObjectURL(url); });
+}
+
+// Charts (Analytics)
+function updateCharts(){
+    api('/finance/api/summary?year='+(new Date()).getFullYear()).then(sum => {
+        const labels = Array.from({length:12}, (_,i)=> i+1);
+        const income = labels.map(m => (sum.months.find(x=>x.month===m)?.income)||0);
+        const expense = labels.map(m => (sum.months.find(x=>x.month===m)?.expense)||0);
+        // Year bar (dashboard)
+        if(!yearChart){
+            yearChart = new Chart(document.getElementById('yearChart'), { type:'bar', data:{labels, datasets:[{label:'Einnahmen', data:income, backgroundColor:'#059669'},{label:'Ausgaben', data:expense.map(v=>-v), backgroundColor:'#dc2626'}]}, options:{plugins:{legend:{position:'bottom'}}, responsive:true, scales:{y:{beginAtZero:true}}}});
+        } else { yearChart.data.datasets[0].data=income; yearChart.data.datasets[1].data=expense.map(v=>-v); yearChart.update(); }
+        // Trend chart
+        const net=labels.map(m => income[m-1]-expense[m-1]);
+        if(!trendChart){ trendChart=new Chart(document.getElementById('chartTrend'), { type:'line', data:{labels, datasets:[{label:'Netto', data:net, borderColor:'#2563eb', backgroundColor:'rgba(37,99,235,.15)', tension:.3, fill:true}]}, options:{responsive:true}}); } else { trendChart.data.datasets[0].data=net; trendChart.update(); }
+        // Moving average (3-Monats)
+        const ma=[]; for(let i=0;i<net.length;i++){ const slice=net.slice(Math.max(0,i-2), i+1); ma.push(slice.reduce((a,b)=>a+b,0)/slice.length); }
+        if(!maChart){ maChart=new Chart(document.getElementById('chartMA'), { type:'line', data:{labels, datasets:[{label:'3M MA Netto', data:ma, borderColor:'#7c3aed', tension:.25}]}, options:{responsive:true}});} else { maChart.data.datasets[0].data=ma; maChart.update(); }
+        // Donut Kategorien (aktuelle budgetsCache aufrufen)
+        const spentCats = categoriesCache.filter(c=>c.spent>0);
+        const dLabels=spentCats.map(c=>c.name);
+        const dData=spentCats.map(c=>c.spent);
+        const dColors=spentCats.map(c=>c.color||'#2563eb');
+        if(!donutChart){ donutChart=new Chart(document.getElementById('chartDonut'), { type:'doughnut', data:{labels:dLabels, datasets:[{data:dData, backgroundColor:dColors}]}, options:{responsive:true, plugins:{legend:{position:'bottom'}}}});} else { donutChart.data.labels=dLabels; donutChart.data.datasets[0].data=dData; donutChart.data.datasets[0].backgroundColor=dColors; donutChart.update(); }
+    });
+}
+
+// Cashflow Projektion
+let projChart=null;
+function loadProjection(){
+  api('/finance/api/projection').then(p=>{
+     document.getElementById('projMonthly').textContent = p.monthly_recurring_net.toFixed(2)+' '+CURRENCY;
+     document.getElementById('projHint').textContent = 'Nächste '+p.horizon_days+'T: '+p.projected_net_next_period.toFixed(2)+' '+CURRENCY;
+     const ctx=document.getElementById('projMiniChart');
+     const dataset=[0,p.projected_net_next_period];
+     if(!projChart){
+       projChart=new Chart(ctx,{type:'line',data:{labels:['Heute','+'+p.horizon_days+'T'],datasets:[{data:dataset,borderColor:'#2563eb',tension:.3,fill:false}]},options:{plugins:{legend:{display:false}},scales:{x:{display:false},y:{display:false}}}});
+     } else {
+       projChart.data.datasets[0].data=dataset;
+       projChart.update();
+     }
+  });
+}
+
+// Init
+reloadTable();
+loadBudgets();
+loadRecurring();
+updateCharts();
+loadIncomeTable();   // bleibt jetzt ohne Fehler
+loadProjection();
+loadUsersForMap();
+
+// Keyboard Shortcut
+document.addEventListener('keydown', e => { if(e.key==='n' && !document.querySelector('.modal-backdrop.open')) openQuickAdd('expense'); if(e.key==='Escape'){ document.querySelectorAll('.modal-backdrop.open').forEach(m=>m.classList.remove('open')); }});
+
+// Familien Quick Stats (Partner-Vergleich) – nutzt vorhandene Summary + Items API
+async function loadFamilyStats(){
+    try {
+        const year = (new Date()).getFullYear();
+        const summary = await api('/finance/api/summary?year='+year); // enthält Monate (für aktuellen Monat extrahieren)
+        // Für Partner Breakdown: wir holen aktuelle Monats-Items in großem page_size und aggregieren per userId (falls Admin Sicht schon erweitert). Für Eltern beide User.
+        const now = new Date();
+        const params = new URLSearchParams({year: now.getFullYear(), month: (now.getMonth()+1)});
+        params.append('page_size','500');
+        const items = await api('/finance/api/items?'+params.toString());
+        const map = {};
+        (items.items||[]).forEach(it=>{
+             if(!map[it.userId]) map[it.userId]={income:0, expense:0};
+             if(it.kind==='income') map[it.userId].income += it.rawAmount; else map[it.userId].expense += it.rawAmount;
+        });
+        const container = document.getElementById('familyQuickStats');
+        container.innerHTML='';
+        Object.keys(map).slice(0,4).forEach(uid=>{
+             const d = map[uid];
+             const balance = d.income - d.expense;
+             const card = document.createElement('div');
+             card.className='card';
+             card.innerHTML = `<h4>Partner ${uid}</h4><div class="mini-metrics"><div><span class='lbl'>Ein:</span> ${d.income.toFixed(2)}</div><div><span class='lbl'>Aus:</span> ${d.expense.toFixed(2)}</div><div><span class='lbl'>Saldo:</span> <strong style='color:${balance<0?'#dc2626':'#059669'}'>${balance.toFixed(2)}</strong></div></div>`;
+             container.appendChild(card);
+        });
+    } catch(e){ console.warn('Family stats fehlgeschlagen', e); }
+}
+loadFamilyStats();
+
+// User Mapping (für Partner Namen)
+async function loadUsersForMap(){
+    try {
+        const r = await fetch('/admin/api/users');
+        if(!r.ok) return; const users = await r.json();
+        userMap = {}; users.forEach(u=> userMap[u.id]=u.username);
+    } catch(e) { console.warn('User map fehlgeschlagen', e); }
+}
+
+// Quick Range Filter
+function applyQuickRange(mode){
+    const now = new Date();
+    let start=null, end=null;
+    if(mode==='month'){
+        start = new Date(now.getFullYear(), now.getMonth(),1);
+        end = new Date(now.getFullYear(), now.getMonth()+1,0);
+    } else if(mode==='30d'){
+        end = now; start = new Date(now.getTime()- (29*24*3600*1000));
+    } else if(mode==='week'){
+        const day = now.getDay(); // 0 So
+        const diff = (day===0?6:day-1); // Mo als Start
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate()-diff);
+        end = new Date(start.getFullYear(), start.getMonth(), start.getDate()+6);
+    }
+    if(start){ document.getElementById('filterStart').value = start.toISOString().substring(0,10); }
+    if(end){ document.getElementById('filterEnd').value = end.toISOString().substring(0,10); }
+    reloadTable(); updateCharts();
+}
+
+function exportCurrentView(){
+    const kind=document.getElementById('filterKind').value;
+    const year=document.getElementById('filterYear').value;
+    const month=document.getElementById('filterMonth').value;
+    const params=new URLSearchParams();
+    if(kind) params.append('kind',kind); if(year) params.append('year',year); if(month) params.append('month',month);
+    window.location = '/finance/api/export.csv?'+params.toString();
+}
+
+// Accounts
+async function loadAccounts(){
+    try {
+        const data = await api('/finance/api/accounts');
+        const list = document.getElementById('accountsList');
+        const fromSel = document.getElementById('tfFrom');
+        const toSel = document.getElementById('tfTo');
+        list.innerHTML=''; fromSel.innerHTML='<option value="">Von</option>'; toSel.innerHTML='<option value="">Nach</option>';
+        data.forEach(a=>{
+            const div=document.createElement('div');
+            div.className='account-line';
+            div.innerHTML=`<strong>${a.name}</strong> <span class='mini-hint'>${a.balance.toFixed(2)} ${CURRENCY}</span>`;
+            list.appendChild(div);
+            const o1=document.createElement('option'); o1.value=a.id; o1.textContent=a.name; fromSel.appendChild(o1);
+            const o2=document.createElement('option'); o2.value=a.id; o2.textContent=a.name; toSel.appendChild(o2);
+        });
+    } catch(e){ console.warn('Accounts fehlgeschlagen', e); }
+}
+loadAccounts();
+
+function createAccount(ev){
+    ev.preventDefault();
+    const fd=new FormData(ev.target);
+    api('/finance/api/accounts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:fd.get('name')})})
+        .then(()=>{ ev.target.reset(); loadAccounts(); })
+        .catch(e=>alert('Konto Fehler: '+e.message));
+}
+
+document.getElementById('transferForm').addEventListener('submit', e=>{
+    e.preventDefault();
+    const from=document.getElementById('tfFrom').value;
+    const to=document.getElementById('tfTo').value;
+    const amount=document.getElementById('tfAmount').value;
+    const desc=document.getElementById('tfDesc').value;
+    api('/finance/api/accounts/transfer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({from, to, amount, description:desc})})
+        .then(res=>{ document.getElementById('transferHint').textContent='Transfer OK'; loadAccounts(); })
+        .catch(err=>{ document.getElementById('transferHint').textContent='Fehler: '+err.message; });
+});
+function resetTransfer(){ document.getElementById('transferForm').reset(); document.getElementById('transferHint').textContent=''; }
+
+function renderBudgetLegend(){
+    let leg = document.getElementById('budgetLegend');
+    if(!leg){
+        leg = document.createElement('div');
+        leg.id='budgetLegend'; leg.className='mini-hint'; leg.style.marginTop='6px';
+        document.getElementById('categoryProgress').appendChild(leg);
+    }
+    leg.innerHTML = 'Legend: <span class="badge ok">&lt;75%</span> <span class="badge mid">75-90%</span> <span class="badge warning">90%+</span> <span class="badge danger">>100%</span>';
+}
+</script>
+<style>
+#familyQuickStats .card{padding:12px 14px;}
+.mini-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(70px,1fr));gap:4px;font-size:11px;margin-top:6px;}
+.mini-metrics .lbl{display:block;font-size:10px;letter-spacing:.5px;color:var(--color-text-faint);}
+.badge.ok{background:var(--color-success-bg,#065f46);}
+.badge.mid{background:#0d9488;}
+.badge.warning{background:#d97706;}
+.badge.danger{background:#b91c1c;}
+.account-line{display:flex;justify-content:space-between;border-bottom:1px solid var(--color-border);padding:4px 2px;font-size:12px;}
+</style>
+{% endblock %}

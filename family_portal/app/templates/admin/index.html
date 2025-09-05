@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Admin{% endblock %}
+
+{% block styles %}{% endblock %}
+
+{% block content %}
+<div class="flash" style="background:var(--color-info-bg,#eef5ff); color:var(--color-text); font-size:.8rem;">Neues erweitertes <a href="{{ url_for('admin.dashboard') }}"><strong>Dashboard</strong></a> verfügbar – diese Seite zeigt primär die Benutzerverwaltung.</div>
+<div class="grid cols-5 mb-6">
+    <div class="card"><h3>Benutzer</h3><div class="metric">{{ stats.users_total }}</div></div>
+    <div class="card"><h3>Events</h3><div class="metric">{{ stats.events_total }}</div></div>
+    <div class="card"><h3>Ausgaben</h3><div class="metric">{{ stats.expenses_total }}</div></div>
+    <div class="card"><h3>Nachrichten</h3><div class="metric">{{ stats.messages_total }}</div></div>
+    <div class="card"><h3>Fotos</h3><div class="metric">{{ stats.photos_total }}</div></div>
+</div>
+<div class="card elevated mb-6">
+ <div class="flex between center mb-3">
+     <h3 style="margin:0;">Benutzer</h3>
+     <a class="btn" href="{{ url_for('admin.new_user') }}">+ Neuer Benutzer</a>
+ </div>
+ <div class="table-wrap">
+    <table class="table">
+        <thead><tr><th>ID</th><th>Name</th><th>E-Mail</th><th>Rolle</th><th style="min-width:180px">Aktionen</th></tr></thead>
+        <tbody>
+        {% for user in users %}
+            <tr>
+                <td>{{ user.id }}</td>
+                <td>{{ user.username }}</td>
+                <td>{{ user.email }}</td>
+                <td>{% if user.is_admin %}<span class="badge primary">Admin{% else %}<span class="badge">User{% endif %}</span></td>
+                <td style="font-size:12px; white-space:nowrap;">
+                    <a class="btn muted" style="padding:6px 10px;" href="{{ url_for('admin.edit_user', user_id=user.id) }}">Bearbeiten</a>
+                    {% if user.id != current_user.id %}
+                    <form method="post" action="{{ url_for('admin.toggle_admin', user_id=user.id) }}" style="display:inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="btn outline" style="padding:6px 10px;" type="submit">Rolle</button>
+                    </form>
+                    <form method="post" action="{{ url_for('admin.reset_password', user_id=user.id) }}" onsubmit="return confirm('Passwort wirklich zurücksetzen?');" style="display:inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="btn outline" style="padding:6px 10px;" type="submit">PW</button>
+                    </form>
+                    <form method="post" action="{{ url_for('admin.delete_user', user_id=user.id) }}" onsubmit="return confirm('Benutzer löschen?');" style="display:inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="btn danger" style="padding:6px 10px;" type="submit">Löschen</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+ </div>
+ <div style="margin-top:10px; font-size:12px; color:var(--color-text-faint);">Seite {{ pagination.page }} / {{ pagination.pages }}</div>
+</div>
+
+<div class="grid cols-3 mb-6">
+    <div class="card">
+        <h3>Audit Log (20)</h3>
+        <div class="stack" style="max-height:280px; overflow:auto;">
+            {% for log in audit_logs %}
+                <div style="display:flex; justify-content:space-between; gap:10px; font-size:12px; border-bottom:1px solid var(--color-border); padding:6px 2px;">
+                    <div><span style="color:var(--color-text-faint);">{{ log.created_at.strftime('%d.%m.%Y %H:%M') }}</span><br><strong>{{ log.action }}</strong> <span style="color:var(--color-text-faint);">({{ log.target_type }} {{ log.target_id }})</span></div>
+                    <div style="white-space:nowrap; color:var(--color-text-soft);">U{{ log.actor_id }}</div>
+                </div>
+            {% else %}
+                <div class="flash">Keine Einträge</div>
+            {% endfor %}
+        </div>
+        <div class="mt-3" style="font-size:12px;">
+            <a href="{{ url_for('admin.export_events_csv') }}">Events CSV</a> ·
+            <a href="{{ url_for('admin.export_expenses_csv') }}">Ausgaben CSV</a> ·
+            <a href="{{ url_for('admin.export_audit_csv') }}">Audit CSV</a>
+        </div>
+    </div>
+    <div class="card">
+        <h3>Letzte Events</h3>
+        <div class="stack" style="max-height:280px; overflow:auto;">
+            {% for e in recent_events %}
+                <div style="display:flex; justify-content:space-between; gap:10px; font-size:12px; border-bottom:1px solid var(--color-border); padding:6px 2px;">
+                    <div><span style="color:var(--color-text-faint);">{{ e.start_time.strftime('%d.%m.%Y') }}</span><br>{{ e.title }}</div>
+                    <div style="white-space:nowrap;">{{ e.event_type or '-' }}</div>
+                </div>
+            {% else %}
+                <div class="flash">Keine Events</div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="card">
+        <h3>Schnellaktionen</h3>
+        <div class="stack">
+            <a class="btn outline" href="{{ url_for('admin.new_user') }}">Benutzer anlegen</a>
+            <a class="btn outline" href="{{ url_for('admin.audit_list') }}">Audit durchsuchen</a>
+            <a class="btn outline" href="{{ url_for('admin.export_audit_csv') }}">Audit Export</a>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}

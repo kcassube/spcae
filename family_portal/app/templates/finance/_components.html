@@ -1,0 +1,3 @@
+{% macro amount(value) %}
+<span class="amount {{ 'neg' if value < 0 else 'pos' }}">{{ '%.2f'|format(value) }} €</span>
+{% endmacro %}

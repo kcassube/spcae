@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h2>Transaktionen</h2>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newTransactionModal">
+                <i class="fas fa-plus"></i> Neue Transaktion
+            </button>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col">
+            <div class="card">
+                <div class="card-body">
+                    <form id="filterForm" class="row g-3">
+                        <div class="col-md-2">
+                            <label class="form-label">Von</label>
+                            <input type="date" class="form-control" name="start">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Bis</label>
+                            <input type="date" class="form-control" name="end">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Typ</label>
+                            <select class="form-select" name="kind">
+                                <option value="">Alle</option>
+                                <option value="income">Einnahme</option>
+                                <option value="expense">Ausgabe</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Konto</label>
+                            <select class="form-select" name="accountId">
+                                <option value="">Alle</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Min. Betrag</label>
+                            <input type="number" class="form-control" name="minAmount" step="0.01">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Max. Betrag</label>
+                            <input type="number" class="form-control" name="maxAmount" step="0.01">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Suche</label>
+                            <input type="text" class="form-control" name="q" placeholder="Beschreibung oder Kategorie">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Limit</label>
+                            <select class="form-select" name="limit">
+                                <option value="50">50</option>
+                                <option value="100" selected>100</option>
+                                <option value="250">250</option>
+                                <option value="500">500</option>
+                                <option value="1000">1000</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search"></i> Filtern
+                            </button>
+                            <button type="reset" class="btn btn-secondary">
+                                <i class="fas fa-undo"></i> Zurücksetzen
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col">
+            <div class="table-responsive">
+                <table class="table table-hover" id="transactionsTable">
+                    <thead>
+                        <tr>
+                            <th>Datum</th>
+                            <th>Typ</th>
+                            <th>Kategorie</th>
+                            <th>Beschreibung</th>
+                            <th>Konto</th>
+                            <th>Betrag</th>
+                            <th>Zahlungsart</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Neue Transaktion Modal -->
+<div class="modal fade" id="newTransactionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="newTransactionForm">
+                <div class="modal-header">
+                    <h5 class="modal-title">Neue Transaktion</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Typ</label>
+                        <select class="form-select" name="kind" required>
+                            <option value="expense">Ausgabe</option>
+                            <option value="income">Einnahme</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Datum</label>
+                        <input type="date" class="form-control" name="date" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Betrag</label>
+                        <input type="number" class="form-control" name="amount" step="0.01" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Beschreibung</label>
+                        <input type="text" class="form-control" name="description" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Kategorie</label>
+                        <input type="text" class="form-control" name="category" list="categoryList">
+                        <datalist id="categoryList">
+                        </datalist>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Konto</label>
+                        <select class="form-select" name="accountId">
+                            <option value="">Kein Konto</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Zahlungsart</label>
+                        <input type="text" class="form-control" name="paymentMethod">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notizen</label>
+                        <textarea class="form-control" name="notes" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" name="makeRecurring" id="makeRecurring">
+                            <label class="form-check-label" for="makeRecurring">Als wiederkehrende Transaktion anlegen</label>
+                        </div>
+                    </div>
+                    <div id="recurringOptions" style="display: none;">
+                        <div class="mb-3">
+                            <label class="form-label">Wiederholung</label>
+                            <select class="form-select" name="recFrequency">
+                                <option value="weekly">Wöchentlich</option>
+                                <option value="monthly" selected>Monatlich</option>
+                                <option value="yearly">Jährlich</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const formatCurrency = (amount) => {
+        return new Intl.NumberFormat('de-DE', {
+            style: 'currency',
+            currency: 'EUR'
+        }).format(amount);
+    };
+
+    const formatDate = (isoDate) => {
+        return new Date(isoDate).toLocaleDateString('de-DE');
+    };
+
+    // Kategorien und Konten laden
+    const categories = new Set();
+    let accounts = [];
+
+    function loadAccounts() {
+        fetch('/finance/api/accounts')
+            .then(response => response.json())
+            .then(data => {
+                accounts = data;
+                const accountSelects = document.querySelectorAll('select[name="accountId"]');
+                accountSelects.forEach(select => {
+                    select.innerHTML = '<option value="">Kein Konto</option>';
+                    accounts.forEach(account => {
+                        const option = document.createElement('option');
+                        option.value = account.id;
+                        option.textContent = account.name;
+                        select.appendChild(option);
+                    });
+                });
+            });
+    }
+
+    function loadTransactions() {
+        const formData = new FormData(document.getElementById('filterForm'));
+        const params = new URLSearchParams();
+        for (let [key, value] of formData.entries()) {
+            if (value) params.append(key, value);
+        }
+
+        fetch(`/finance/api/transactions?${params.toString()}`)
+            .then(response => response.json())
+            .then(transactions => {
+                const tbody = document.querySelector('#transactionsTable tbody');
+                tbody.innerHTML = '';
+                
+                transactions.forEach(tx => {
+                    // Kategorien für Autovervollständigung sammeln
+                    if (tx.category) categories.add(tx.category);
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${formatDate(tx.date)}</td>
+                        <td>${tx.kind === 'income' ? 'Einnahme' : 'Ausgabe'}</td>
+                        <td>${tx.category}</td>
+                        <td>${tx.description}</td>
+                        <td>${tx.accountName}</td>
+                        <td class="text-${tx.kind === 'income' ? 'success' : 'danger'}">${formatCurrency(tx.amount)}</td>
+                        <td>${tx.paymentMethod || '-'}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                // Kategorien-Datalist aktualisieren
+                const datalist = document.getElementById('categoryList');
+                datalist.innerHTML = Array.from(categories)
+                    .map(cat => `<option value="${cat}">`)
+                    .join('');
+            });
+    }
+
+    // Neue Transaktion
+    document.getElementById('newTransactionForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        const data = Object.fromEntries(formData);
+        
+        // Datum formatieren
+        data.date = new Date(data.date).toISOString();
+        
+        fetch('/finance/api/transactions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert(data.error);
+            } else {
+                bootstrap.Modal.getInstance(document.getElementById('newTransactionModal')).hide();
+                this.reset();
+                loadTransactions();
+            }
+        });
+    });
+
+    // Wiederkehrende Optionen ein-/ausblenden
+    document.getElementById('makeRecurring').addEventListener('change', function() {
+        document.getElementById('recurringOptions').style.display = this.checked ? 'block' : 'none';
+    });
+
+    // Filter Form
+    document.getElementById('filterForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        loadTransactions();
+    });
+
+    document.getElementById('filterForm').addEventListener('reset', function() {
+        setTimeout(loadTransactions, 0);
+    });
+
+    // Initiale Ladung
+    loadAccounts();
+    loadTransactions();
+
+    // Heute als Standarddatum setzen
+    document.querySelector('#newTransactionForm input[name="date"]').value = new Date().toISOString().split('T')[0];
+});
+</script>
+{% endblock %}

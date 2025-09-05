@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block title %}Audit Log{% endblock %}
+{% block content %}
+<h1>Audit Log</h1>
+<form method="get" style="margin-bottom:1rem; display:flex; gap:1rem; flex-wrap:wrap; align-items:flex-end;">
+  <label style="display:flex; flex-direction:column; font-size:.8rem;">Action
+    <select name="action" onchange="this.form.submit()">
+      <option value="">Alle</option>
+      {% for a in actions %}
+        <option value="{{ a }}" {% if a==current_action %}selected{% endif %}>{{ a }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label style="display:flex; flex-direction:column; font-size:.8rem;">Suche
+    <input type="text" name="q" value="{{ search }}" placeholder="Text/Snippet" />
+  </label>
+  <button class="btn" type="submit">Filtern</button>
+  <a class="btn outline" href="{{ url_for('admin.audit_list') }}">Reset</a>
+</form>
+<table style="width:100%;border-collapse:collapse;font-size:.85rem;">
+  <thead><tr><th>ID</th><th>Zeit</th><th>User</th><th>Action</th><th>Target</th><th>Details</th></tr></thead>
+  <tbody>
+    {% for l in logs %}
+      <tr>
+        <td><a href="{{ url_for('admin.audit_detail', log_id=l.id) }}">{{ l.id }}</a></td>
+        <td>{{ l.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+        <td>{{ l.actor_id }}</td>
+        <td>{{ l.action }}</td>
+        <td>{{ l.target_type }} {{ l.target_id }}</td>
+        <td>{{ (l.details[:60] + '...') if l.details and l.details|length>60 else l.details }}</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<div style="margin-top:1rem;">
+  {% if pagination.has_prev %}<a href="?page={{ pagination.prev_num }}{% if current_action %}&action={{ current_action }}{% endif %}">« Zurück</a>{% endif %}
+  Seite {{ pagination.page }} / {{ pagination.pages }}
+  {% if pagination.has_next %}<a href="?page={{ pagination.next_num }}{% if current_action %}&action={{ current_action }}{% endif %}">Weiter »</a>{% endif %}
+</div>
+<p style="margin-top:1.5rem; font-size:.85rem;">
+  <a href="{{ url_for('admin.dashboard') }}">← Zurück zum Dashboard</a>
+</p>
+{% endblock %}

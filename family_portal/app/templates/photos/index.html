@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}Fotos{% endblock %}
+
+{% block content %}
+<h1>Fotos</h1>
+<form method="post" action="{{ url_for('photos.upload') }}" enctype="multipart/form-data" class="card" style="padding:10px;display:flex;gap:6px;align-items:center;">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+  <input type="file" name="file" required />
+  <input type="text" name="title" class="input" placeholder="Titel" />
+  <button class="btn" type="submit">Upload</button>
+</form>
+<style>
+.photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-top:14px;}
+.ph-card{position:relative;padding:6px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;display:flex;flex-direction:column;}
+[data-theme="dark"] .ph-card{background:#222;border-color:#333;}
+.ph-thumb-wrapper{position:relative;width:100%;padding-top:70%;overflow:hidden;border-radius:4px;background:#f1f5f9;}
+[data-theme="dark"] .ph-thumb-wrapper{background:#111;}
+.ph-thumb-wrapper img{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;}
+.ph-actions{display:flex;gap:6px;margin-top:6px;}
+.ph-actions button{flex:1;font-size:11px;padding:4px 6px;}
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;z-index:2000;}
+.modal-backdrop.open{display:flex;}
+.photo-modal{background:#fff;color:#111;max-width:90%;max-height:90%;padding:10px;border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,.4);display:flex;flex-direction:column;}
+[data-theme="dark"] .photo-modal{background:#1d1d1d;color:#eee;}
+.photo-modal img{max-width:80vw;max-height:65vh;object-fit:contain;border-radius:4px;background:#000;}
+.photo-meta{font-size:12px;margin-top:6px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.btn.small{font-size:11px;padding:4px 6px;}
+</style>
+
+<div class="photo-grid">
+  {% for p in photos %}
+  <div class="ph-card" data-id="{{ p.id }}" data-fn="{{ p.filename }}" data-title="{{ (p.title or '—')|e }}" data-ts="{{ p.created_at.isoformat() }}">
+     <div class="ph-thumb-wrapper" role="button" tabindex="0" aria-label="Foto ansehen">
+       <img loading="lazy" src="{{ url_for('photos.raw', fname=p.filename) }}" alt="{{ p.title or '' }}" />
+     </div>
+     <div style="font-size:12px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ p.title or '—' }}">{{ p.title or '—' }}</div>
+     <div style="font-size:10px;color:#666;">{{ p.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+     <div class="ph-actions">
+        <button class="btn small" data-act="view">Ansehen</button>
+        <button class="btn small" data-act="dl" title="Download">DL</button>
+        <button class="btn small" data-act="del" title="Löschen" style="background:#dc2626;">X</button>
+     </div>
+  </div>
+  {% else %}
+  <p>Keine Fotos.</p>
+  {% endfor %}
+</div>
+
+<div id="photoModal" class="modal-backdrop" aria-modal="true" role="dialog">
+  <div class="photo-modal">
+     <img id="pmImg" src="" alt="" />
+     <div class="photo-meta"><span id="pmTitle"></span><span id="pmTime"></span></div>
+     <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn small" id="pmDownload">Download</button>
+        <button class="btn small" id="pmDelete" style="background:#dc2626;">Löschen</button>
+        <button class="btn small" id="pmClose">Schließen</button>
+     </div>
+  </div>
+</div>
+
+{% block scripts %}{% endblock %}
+<script>
+const modal=document.getElementById('photoModal');
+const pmImg=document.getElementById('pmImg');
+const pmTitle=document.getElementById('pmTitle');
+const pmTime=document.getElementById('pmTime');
+const pmDownload=document.getElementById('pmDownload');
+const pmDelete=document.getElementById('pmDelete');
+const pmClose=document.getElementById('pmClose');
+let currentId=null; let currentFn=null;
+function openModal(card){
+  currentId=card.dataset.id; currentFn=card.dataset.fn;
+  pmImg.src=`${card.querySelector('img').src}`;
+  pmTitle.textContent=card.dataset.title;
+  pmTime.textContent=new Date(card.dataset.ts).toLocaleString();
+  modal.classList.add('open');
+}
+function closeModal(){modal.classList.remove('open');pmImg.src='';}
+pmClose.addEventListener('click',closeModal);
+modal.addEventListener('click',e=>{if(e.target===modal) closeModal();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape') closeModal();});
+document.querySelectorAll('.ph-thumb-wrapper,button[data-act="view"]').forEach(el=>{
+  el.addEventListener('click',()=>openModal(el.closest('.ph-card')));
+});
+pmDownload.addEventListener('click',()=>{window.location=`/photos/download/${encodeURIComponent(currentFn)}`;});
+pmDelete.addEventListener('click',()=>{
+  if(!confirm('Foto wirklich löschen?')) return;
+  fetch(`/photos/api/delete/${currentId}`,{method:'POST'}).then(r=>r.json()).then(j=>{
+    if(j.status==='deleted'){
+      const card=document.querySelector(`.ph-card[data-id="${currentId}"]`);
+      if(card) card.remove();
+      closeModal();
+    }
+  });
+});
+document.querySelectorAll('button[data-act="dl"]').forEach(b=>b.addEventListener('click',e=>{
+  const card=b.closest('.ph-card'); window.location=`/photos/download/${encodeURIComponent(card.dataset.fn)}`;
+}));
+document.querySelectorAll('button[data-act="del"]').forEach(b=>b.addEventListener('click',e=>{
+  const card=b.closest('.ph-card'); if(!confirm('Foto wirklich löschen?')) return;
+  fetch(`/photos/api/delete/${card.dataset.id}`,{method:'POST'}).then(r=>r.json()).then(j=>{if(j.status==='deleted'){card.remove(); if(currentId===card.dataset.id) closeModal();}});
+}));
+</script>
+{% endblock %}

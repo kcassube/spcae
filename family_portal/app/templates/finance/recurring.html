@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h2>Wiederkehrende Transaktionen</h2>
+            <p>Hier können Sie Ihre wiederkehrenden Ein- und Ausgaben verwalten.</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col">
+            <div class="table-responsive">
+                <table class="table table-hover" id="recurringTable">
+                    <thead>
+                        <tr>
+                            <th>Beschreibung</th>
+                            <th>Typ</th>
+                            <th>Kategorie</th>
+                            <th>Betrag</th>
+                            <th>Startdatum</th>
+                            <th>Häufigkeit</th>
+                            <th>Konto</th>
+                            <th>Status</th>
+                            <th>Aktionen</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const formatCurrency = (amount) => {
+        return new Intl.NumberFormat('de-DE', {
+            style: 'currency',
+            currency: 'EUR'
+        }).format(amount);
+    };
+
+    const formatDate = (isoDate) => {
+        return new Date(isoDate).toLocaleDateString('de-DE');
+    };
+
+    const translateFrequency = (freq) => {
+        const translations = {
+            'weekly': 'Wöchentlich',
+            'monthly': 'Monatlich',
+            'yearly': 'Jährlich'
+        };
+        return translations[freq] || freq;
+    };
+
+    function loadRecurringTransactions() {
+        fetch('/finance/api/recurring')
+            .then(response => response.json())
+            .then(transactions => {
+                const tbody = document.querySelector('#recurringTable tbody');
+                tbody.innerHTML = '';
+                
+                transactions.forEach(tx => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${tx.description}</td>
+                        <td>${tx.kind === 'income' ? 'Einnahme' : 'Ausgabe'}</td>
+                        <td>${tx.category}</td>
+                        <td class="text-${tx.kind === 'income' ? 'success' : 'danger'}">${formatCurrency(tx.amount)}</td>
+                        <td>${formatDate(tx.startDate)}</td>
+                        <td>${translateFrequency(tx.frequency)}</td>
+                        <td>${tx.accountId ? tx.accountName : '-'}</td>
+                        <td>
+                            <span class="badge bg-${tx.active ? 'success' : 'danger'}">
+                                ${tx.active ? 'Aktiv' : 'Inaktiv'}
+                            </span>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-danger" onclick="toggleRecurring(${tx.id}, ${!tx.active})">
+                                ${tx.active ? 'Deaktivieren' : 'Aktivieren'}
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            });
+    }
+
+    // Status einer wiederkehrenden Transaktion ändern
+    window.toggleRecurring = function(id, active) {
+        if (!confirm(`Möchten Sie diese wiederkehrende Transaktion wirklich ${active ? 'aktivieren' : 'deaktivieren'}?`)) {
+            return;
+        }
+        
+        fetch(`/finance/api/recurring/${id}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ active })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert(data.error);
+            } else {
+                loadRecurringTransactions();
+            }
+        });
+    };
+
+    // Initiale Ladung
+    loadRecurringTransactions();
+});
+</script>
+{% endblock %}

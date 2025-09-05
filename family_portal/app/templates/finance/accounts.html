@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h2>Konten</h2>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newAccountModal">
+                <i class="fas fa-plus"></i> Neues Konto
+            </button>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col">
+            <div class="table-responsive">
+                <table class="table table-hover" id="accountsTable">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Typ</th>
+                            <th>Kontostand</th>
+                            <th>Bank</th>
+                            <th>Besitzer</th>
+                            <th>Aktionen</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Neues Konto Modal -->
+<div class="modal fade" id="newAccountModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="newAccountForm">
+                <div class="modal-header">
+                    <h5 class="modal-title">Neues Konto erstellen</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Name</label>
+                        <input type="text" class="form-control" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Kontotyp</label>
+                        <select class="form-select" name="type">
+                            {% for type in account_types %}
+                            <option value="{{ type }}">{{ type }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Anfangssaldo</label>
+                        <input type="number" class="form-control" name="initialBalance" step="0.01" value="0">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Bank</label>
+                        <input type="text" class="form-control" name="bankName">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">IBAN</label>
+                        <input type="text" class="form-control" name="iban">
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" name="allowNegative" id="allowNegative">
+                            <label class="form-check-label" for="allowNegative">Negativen Kontostand erlauben</label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notizen</label>
+                        <textarea class="form-control" name="notes" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Überweisung Modal -->
+<div class="modal fade" id="transferModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="transferForm">
+                <div class="modal-header">
+                    <h5 class="modal-title">Überweisung zwischen Konten</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Von Konto</label>
+                        <select class="form-select" name="from" required></select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Zu Konto</label>
+                        <select class="form-select" name="to" required></select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Betrag</label>
+                        <input type="number" class="form-control" name="amount" step="0.01" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Beschreibung</label>
+                        <input type="text" class="form-control" name="description">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Überweisen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const formatCurrency = (amount) => {
+        return new Intl.NumberFormat('de-DE', {
+            style: 'currency',
+            currency: 'EUR'
+        }).format(amount);
+    };
+
+    function loadAccounts() {
+        fetch('/finance/api/accounts')
+            .then(response => response.json())
+            .then(accounts => {
+                const tbody = document.querySelector('#accountsTable tbody');
+                tbody.innerHTML = '';
+                
+                accounts.forEach(account => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${account.name}</td>
+                        <td>${account.type}</td>
+                        <td class="text-${account.balance >= 0 ? 'success' : 'danger'}">${formatCurrency(account.balance)}</td>
+                        <td>${account.bankName || '-'}</td>
+                        <td>${account.ownerName}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary transfer-btn" data-account-id="${account.id}">
+                                <i class="fas fa-exchange-alt"></i>
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                // Update Transfer Modal Selects
+                const fromSelect = document.querySelector('#transferForm select[name="from"]');
+                const toSelect = document.querySelector('#transferForm select[name="to"]');
+                fromSelect.innerHTML = '';
+                toSelect.innerHTML = '';
+
+                accounts.forEach(account => {
+                    const option = document.createElement('option');
+                    option.value = account.id;
+                    option.textContent = `${account.name} (${formatCurrency(account.balance)})`;
+                    fromSelect.appendChild(option.cloneNode(true));
+                    toSelect.appendChild(option.cloneNode(true));
+                });
+            });
+    }
+
+    // Neues Konto erstellen
+    document.getElementById('newAccountForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        const data = Object.fromEntries(formData);
+        
+        fetch('/finance/api/accounts', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                name: data.name,
+                type: data.type,
+                initialBalance: parseFloat(data.initialBalance) || 0,
+                bankName: data.bankName,
+                iban: data.iban,
+                allowNegative: data.allowNegative === 'on',
+                notes: data.notes
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert(data.error);
+            } else {
+                bootstrap.Modal.getInstance(document.getElementById('newAccountModal')).hide();
+                this.reset();
+                loadAccounts();
+            }
+        });
+    });
+
+    // Überweisung zwischen Konten
+    document.getElementById('transferForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        const data = Object.fromEntries(formData);
+        
+        fetch('/finance/api/accounts/transfer', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert(data.error);
+            } else {
+                bootstrap.Modal.getInstance(document.getElementById('transferModal')).hide();
+                this.reset();
+                loadAccounts();
+            }
+        });
+    });
+
+    // Transfer Button Click
+    document.querySelector('#accountsTable').addEventListener('click', function(e) {
+        if (e.target.closest('.transfer-btn')) {
+            const accountId = e.target.closest('.transfer-btn').dataset.accountId;
+            document.querySelector('#transferForm select[name="from"]').value = accountId;
+            new bootstrap.Modal(document.getElementById('transferModal')).show();
+        }
+    });
+
+    // Initial load
+    loadAccounts();
+});
+</script>
+{% endblock %}

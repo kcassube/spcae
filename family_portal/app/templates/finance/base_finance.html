@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+
+{% block title %}Finanzen{% endblock %}
+
+{% block content %}
+<div class="finance-container">
+    <!-- Finance Content Area -->
+    <div class="finance-content">
+        {% block finance_content %}{% endblock %}
+    </div>
+</div>
+
+<!-- Quick Action Modals -->
+<!-- Quick Income Modal -->
+<div class="modal fade" id="quickIncomeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="quickIncomeForm" class="quick-transaction-form" data-type="income">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">Neue Einnahme</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Betrag</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" name="amount" step="0.01" required>
+                            <span class="input-group-text">€</span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Beschreibung</label>
+                        <input type="text" class="form-control" name="description" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Kategorie</label>
+                        <input type="text" class="form-control" name="category" list="incomeCategoriesList">
+                        <datalist id="incomeCategoriesList"></datalist>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Konto</label>
+                        <select class="form-select" name="accountId" required>
+                        </select>
+                    </div>
+                    <input type="hidden" name="kind" value="income">
+                    <input type="hidden" name="date" value="">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-success">Einnahme buchen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Expense Modal -->
+<div class="modal fade" id="quickExpenseModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="quickExpenseForm" class="quick-transaction-form" data-type="expense">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">Neue Ausgabe</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Betrag</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" name="amount" step="0.01" required>
+                            <span class="input-group-text">€</span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Beschreibung</label>
+                        <input type="text" class="form-control" name="description" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Kategorie</label>
+                        <input type="text" class="form-control" name="category" list="expenseCategoriesList">
+                        <datalist id="expenseCategoriesList"></datalist>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Konto</label>
+                        <select class="form-select" name="accountId" required>
+                        </select>
+                    </div>
+                    <input type="hidden" name="kind" value="expense">
+                    <input type="hidden" name="date" value="">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-danger">Ausgabe buchen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Transfer Modal -->
+<div class="modal fade" id="quickTransferModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="quickTransferForm">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">Schnellüberweisung</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Von Konto</label>
+                        <select class="form-select" name="from" required>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Zu Konto</label>
+                        <select class="form-select" name="to" required>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Betrag</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" name="amount" step="0.01" required>
+                            <span class="input-group-text">€</span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Beschreibung</label>
+                        <input type="text" class="form-control" name="description">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Überweisen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% block finance_modals %}{% endblock %}
+{% endblock %}
+
+{% block styles %}
+<style>
+.finance-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: var(--space-4);
+}
+
+.finance-content {
+    background: white;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    padding: var(--space-6);
+}
+
+/* Quick Action Buttons */
+.quick-action {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    color: var(--color-gray-700);
+    text-decoration: none;
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+}
+
+.quick-action:hover {
+    background: var(--color-gray-100);
+}
+
+.quick-action i {
+    width: 1.5em;
+    text-align: center;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .finance-container {
+        padding: var(--space-2);
+    }
+
+    .finance-content {
+        padding: var(--space-4);
+    }
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Globale Funktionen
+    window.formatCurrency = (amount) => {
+        return new Intl.NumberFormat('de-DE', {
+            style: 'currency',
+            currency: 'EUR'
+        }).format(amount);
+    };
+
+    window.formatDate = (isoDate) => {
+        return new Date(isoDate).toLocaleDateString('de-DE');
+    };
+
+    // Kontenliste aktualisieren
+    function updateAccountSelects() {
+        fetch('/finance/api/accounts')
+            .then(response => response.json())
+            .then(accounts => {
+                const accountSelects = document.querySelectorAll('select[name="accountId"], select[name="from"], select[name="to"]');
+                accountSelects.forEach(select => {
+                    const currentValue = select.value;
+                    select.innerHTML = select.name === 'accountId' ? 
+                        '<option value="">Kein Konto</option>' : '';
+                    
+                    accounts.forEach(account => {
+                        const option = document.createElement('option');
+                        option.value = account.id;
+                        option.textContent = `${account.name} (${formatCurrency(account.balance)})`;
+                        select.appendChild(option);
+                    });
+                    
+                    if (currentValue) {
+                        select.value = currentValue;
+                    }
+                });
+            });
+    }
+
+    // Quick Transaction Forms
+    document.querySelectorAll('.quick-transaction-form').forEach(form => {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            formData.set('date', new Date().toISOString());
+            
+            fetch('/finance/api/transactions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(Object.fromEntries(formData))
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                } else {
+                    bootstrap.Modal.getInstance(this.closest('.modal')).hide();
+                    this.reset();
+                    updateAccountSelects();
+                    if (typeof refreshDashboard === 'function') {
+                        refreshDashboard();
+                    }
+                }
+            });
+        });
+    });
+
+    // Quick Transfer Form
+    document.getElementById('quickTransferForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        
+        fetch('/finance/api/accounts/transfer', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(Object.fromEntries(formData))
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert(data.error);
+            } else {
+                bootstrap.Modal.getInstance(document.getElementById('quickTransferModal')).hide();
+                this.reset();
+                updateAccountSelects();
+                if (typeof refreshDashboard === 'function') {
+                    refreshDashboard();
+                }
+            }
+        });
+    });
+
+    // Initial Account Loading
+    updateAccountSelects();
+});
+</script>
+{% block finance_scripts %}{% endblock %}
+{% endblock %}
